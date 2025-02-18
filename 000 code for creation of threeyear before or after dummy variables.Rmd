@@ -1,0 +1,339 @@
+---
+title: "chapter 3 regression"
+author: "Peng"
+date: "2024-06-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r load packages, message=FALSE, warning=FALSE}
+#install.packages("clubSandwich")
+library(readr)
+
+library(fixest) 
+library(tidyverse)
+library(plm)
+#library(stargazer)
+library(sandwich)
+library(lmtest)
+
+```
+
+
+```{r}
+getwd()
+```
+
+```{r}
+dates<- read_csv("Chch_dates.csv")
+```
+
+```{r}
+df<- read_csv("final_dataset_chap3.csv") 
+# in this dataset the three year indicators are not properly set
+#"D:\01 Research\Coding\python\final_dataset_chap3.csv"
+```
+```{r}
+dim(df)
+```
+
+
+```{r}
+# Remove columns starting with 'three_years'
+#df <- df[ , !grepl("^3 years", names(df))]
+```
+
+```{r}
+names(df)
+```
+
+
+```{r}
+head(df)
+```
+```{r}
+class(df$"CL_Sale_Date"[0])
+```
+
+
+
+```{r}
+head(dates)
+```
+343, 331, 326 were dropped because these three are State Integrated schools with super large size school zone coverage but their schools zones are not quite similar to thoes of State Schools in essence. 
+
+After checking the Approval Dates of all 16 schools, [319,321, 324,  327,328, 334, 336, 340] were set up in 1999
+316 was set up in 2006, so when estimate its effect we need to include [316, 319,321, 324, 326, 327,328, 334, 336, 340]
+
+338 was in 2018, so include all zones in existence [316, 319, 321, 324, 326, 327,328, 334, 336, 338,  340]
+320 337 and 339 were set up in 2019, so include all zones in existence [316, 319,320, 321, 324, 326, 327,328, 334, 336, 337, 338, 339, 340]
+
+
+```{r}
+dates$`Approval Date`
+```
+Corresponding schoolids
+
+[316, 319, 320, 321, 324, 326, 327, 328,
+331, 334, 336, 337, 338, 339, 340, 343]
+
+```{r}
+# create three year indicators for each schoolid
+# schooid = 320
+# Threshold date
+threshold_date <- as.Date("2019-06-26")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_320 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+ 
+```{r}
+# create three year indicators for each schoolid
+# schooid = 319
+# Threshold date
+threshold_date <- as.Date("1999-04-06")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_319 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+```{r}
+# schooid = 321
+# Threshold date
+threshold_date <- as.Date("1999-05-29")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_321 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 324
+# Threshold date
+threshold_date <- as.Date("1999-03-05")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_324 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+
+```
+
+```{r}
+# schooid = 327
+# Threshold date
+threshold_date <- as.Date("1999-04-06" )
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_327 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+
+```
+
+```{r}
+# schooid = 328
+# Threshold date
+threshold_date <- as.Date("1999-05-27" )
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_328 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+
+
+# schooid = 334
+# Threshold date
+threshold_date <- as.Date("1999-06-16")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_334 <- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+
+```{r}
+# schooid = 336
+# Threshold date
+threshold_date <- as.Date("1999-09-13")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_336<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+
+
+```{r}
+# schooid = 340
+# Threshold date
+threshold_date <- as.Date("1999-05-27")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_340<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 316
+# Threshold date
+threshold_date <- as.Date("2006-02-05")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_316<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 338
+# Threshold date
+threshold_date <- as.Date("2006-02-05")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_338<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 320
+# Threshold date
+threshold_date <- as.Date("2006-02-05")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_338<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 337
+# Threshold date
+threshold_date <- as.Date("2019-06-20")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_337<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 339
+# Threshold date
+threshold_date <- as.Date("2019-07-10")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_339<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 343
+# Threshold date
+threshold_date <- as.Date("2011-02-15")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_343<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 331
+# Threshold date
+threshold_date <- as.Date("2008-02-12")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_331<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+```{r}
+# schooid = 326
+# Threshold date
+threshold_date <- as.Date("2014-07-23")
+threshold_date_90d_before<-threshold_date - days(90)
+threshold_date_90d_after<-threshold_date + days(90)
+# Create dummy column
+df$threeyears_326<- with(df, ifelse(
+  df$"CL_Sale_Date"> threshold_date_90d_after & df$"CL_Sale_Date" <= threshold_date_90d_after + years(3), 1,
+  ifelse(df$"CL_Sale_Date" < threshold_date_90d_before & df$"CL_Sale_Date" >= threshold_date_90d_before - years(3), 0, NA)
+))
+```
+
+
+```{r}
+# check values of all three year dummies
+unique(df$threeyears_326)
+```
+```{r}
+dim(df)
+```
+
+```{r}
+rm(df_sub)
+```
+
+
+# Cleaning principle:
+
+garages <= 4
+bedrooms <= 6
+gross sale prices > 10000 & <=2000000
+land area <= 0.25
+drop CL_Building_Floor_Area =0
+'CL_Sale_Tenure']=='F' freehold
+['CL_Sale_Price_Value_Relationship']==1]
+floor area <= 500
+
+
+```{r}
+#df2 <- df %>% subset(df$CL_Bathrooms <= 6) %>% subset(df$CL_Bedrooms <= 6)  %>% subset(df$CL_Sale_Price_Gross <=2000000) %>% subset(df$CL_Sale_Price_Gross> 10000)%>% subset(df$ CL_Building_Floor_Area <=500) %>% subset(df$CL_Land_Area <=0.25) %>% subset(df$CL_Sale_Tenure =="F") %>% subset (df$CL_Sale_Price_Value_Relationship == 1) %>% subset(df$CL_MAS_Free_Standing_Garages <= 6) %>% subset(df$CL_MAS_No_Main_Roof_Garages <=6)
+```

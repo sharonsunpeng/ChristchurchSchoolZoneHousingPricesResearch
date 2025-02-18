@@ -1,0 +1,123 @@
+---
+title: "chapter 3 regression"
+author: "Peng"
+date: "2024-06-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r load packages, message=FALSE, warning=FALSE}
+#install.packages("clubSandwich")
+library(readr)
+
+library(fixest) 
+library(tidyverse)
+library(plm)
+#library(stargazer)
+library(sandwich)
+library(lmtest)
+library(tmap)
+#install.packages(c("spatmap","rgeoda","spatialreg","geodaData", "RColorBrewer"))
+#library(spatmap)
+library(sf)  #  sf aims to replace sp, rgeos and the vector parts of rgdal
+library(spdep)
+library(ggplot2)
+library(deldir)
+library(sp)
+library(purrr)
+library(geodaData)
+library(spatialreg)
+library(rgeoda)
+library(RColorBrewer)
+library(spatialreg)
+```
+
+
+run after loading cleaned dataset
+
+```{r}
+getwd()
+```
+
+
+```{r}
+# After filtering the dataset, I also double check the distribution of points in Geoda, and identify that there are 38 records are not located within the boundary of Christchurch City, so I face two options, one is to drop them, the other is to go through the geocoding again. I decided to go through the records, and drop them. 
+# Here is the list of these indexes
+#[273430, 273431, 273740, 276758]
+#[270639, 271285, 271505, 271650, 271651, 271902, 271903, 271904, 272004,
+#       272272, 272273, 272274, 272857, 272926, 272927, 272928, 272929, 273005,
+#       273006, 273306, 273327, 273571, 273831, 273832, 274438, 274537, 274619,
+#       275190, 275191, 275192, 276285, 276643, 276900, 276907]
+```
+
+```{r}
+# update one geocode record
+df$CL_Longitude[276901] <- 172.621858
+df$CL_Latitude[276901]<--43.518584
+df$geometry[276901] <- 'POINT (172.621858 -43.518584)'
+```
+
+```{r}
+sort(unique(df$CL_Latitude)) # three outliers: -46.10664 -46.10462 -46.10443 
+```
+```{r}
+head(sort(unique(df$CL_Latitude)))
+```
+
+```{r}
+tail(sort(unique(df$CL_Latitude)))
+```
+
+
+```{r}
+sort(unique(df$CL_Longitude)) # four outliers 68.9378 168.9378 168.9379 170.9740
+```
+```{r}
+tail(sort(unique(df$CL_Longitude)))
+```
+
+```{r}
+
+df <- df[!df$CL_Longitude %in% c(168.937777, 168.9377834, 168.937899, 170.973997, 173.8635 ,174.1250 ,174.2233, 174.2238, 174.8474, 174.9165,174.9167, 175.2581, 175.4300, 175.5907, 175.6422, 175.7541, 175.7552, 176.3443, 176.3444, 176.3445, 176.3446), ]
+```
+
+```{r}
+df <- df[!df$CL_Latitude %in% c(-46.1066365, -46.104617, -46.1044304), ]
+```
+
+```{r}
+sort(unique(df$CL_Longitude[df$CL_Longitude >173]))
+```
+```{r}
+dim(df)
+```
+
+# drop null values
+```{r}
+# Filter rows where either CL_Latitude or CL_Longitude is NA
+df <- df[!is.na(df$CL_Latitude) & !is.na(df$CL_Longitude), ]
+```
+
+```{r}
+dim(df)
+```
+```{r}
+
+df[!df$CL_Longitude<174,]
+```
+```{r}
+df <- df[df$CL_Longitude<174,]
+```
+```{r}
+dim(df)
+```
+
+
+
+
+
+
+
+
+

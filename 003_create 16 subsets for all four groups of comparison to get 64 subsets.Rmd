@@ -1,0 +1,84 @@
+---
+title: "Generation of 64 subsets"
+author: "Peng Sun"
+date: "2024-09-18"
+output: html_document
+---
+
+Before start, Set work directory to "D:/Rproject_202409", load the dataset and schoolid_list
+```{r}
+#check working directory
+getwd()
+```
+
+
+
+
+```{r}
+#df<-read.csv("chapter3_dataset_afterrunning002_data_prep.csv")  
+#"D:\Rproject_202409\chapter3_dataset_afterrunning002_data_prep.csv"
+```
+
+
+```{r}
+#schoolid_list<-read.csv("schoolid_list.csv")
+#"D:\Rproject_202409\schoolid_list.csv"
+schoolid_list
+
+```
+
+```{r}
+dim(df)
+```
+
+```{r}
+names(df)
+```
+
+
+
+
+```{r}
+process_school_data <- function(df, school_id) {
+  
+  # Define column names dynamically for each group based on school_id
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    
+    # Save the subset as CSV with a unique filename for each group
+    group_name <- gsub("schoolid_", "", outzone_col)  
+    write.csv(subset_data, paste0("subset_school_", school_id, "_", group_name, ".csv"), row.names = FALSE)
+  }
+}
+
+# Apply the function to each school_id in the list
+for (school_id in schoolid_list) {
+  process_school_data(df, school_id)
+}
+```

@@ -1,0 +1,164 @@
+---
+title: "packages_prep"
+author: "Peng Sun"
+date: "2024-09-17"
+output: html_document
+---
+# Set Working Directory
+```{r}
+setwd("D:/Rproject_202409")
+getwd()
+```
+
+# Install Packages
+```{r}
+# Define a list of necessary packages for econometric analysis, causal inference, and spatial regression
+
+necessary_packages <- c(
+  # Econometric packages
+  "AER", "plm", "sandwich", "lmtest", "broom", "car", "fixest",
+  
+  # Causal inference packages
+   "Matching", "Synth", "did", "twang", "WeightIt", "dagitty",
+  
+  # Spatial analysis and spatial econometrics packages
+  "sp", "sf", "spdep", "terra",  "tmap", "spatialreg", "spatstat",
+  
+  # Tidyverse for data manipulation and visualization
+  "tidyverse", "dplyr", "ggplot2", "tidymodels", "forcats",
+  
+  # table and results plot packages
+  "stargazer", "textreg", "sjPlot", "coefplot", "corrplot", "jtools", "dotwhisker"
+)
+
+# Function to check and install missing packages
+check_and_install_packages <- function(packages) {
+  missing_packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+  
+  if (length(missing_packages) > 0) {
+    cat("Installing missing packages:", missing_packages, "\n")
+    install.packages(missing_packages)
+  } else {
+    cat("All necessary packages are already installed.\n")
+  }
+}
+
+# Run the function
+check_and_install_packages(necessary_packages)
+
+# Load all packages after installation
+lapply(necessary_packages, library, character.only = TRUE)
+
+```
+
+
+
+
+```{r}
+# more causal inference pakkages
+causal_inference_packages <- c("AER", "ivreg", "Matching", "Synth", "did", "twang", "WeightIt",
+                               "CausalImpact", "causaldrf", "dagitty", "mediation", "sensemakr", 
+                               "panelView", "CBPS", "rdrobust")
+
+# Function to check and install missing packages
+check_and_install_packages <- function(packages) {
+  missing_packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+  
+  if (length(missing_packages) > 0) {
+    cat("Installing missing packages:", missing_packages, "\n")
+    install.packages(missing_packages)
+  } else {
+    cat("All necessary packages are already installed.\n")
+  }
+}
+
+# Run the function to install
+check_and_install_packages(causal_inference_packages)
+
+# Load all packages
+lapply(causal_inference_packages, library, character.only = TRUE)
+
+```
+
+```{r}
+# Function to get package version information
+get_package_versions <- function(packages) {
+  # Create empty data frame to store results
+  package_info <- data.frame(
+    Package = character(),
+    Installed_Version = character(),
+    Latest_Version = character(),
+    Status = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  # Get installed packages information
+  installed <- installed.packages()
+  
+  for(pkg in packages) {
+    tryCatch({
+      if(pkg %in% rownames(installed)) {
+        installed_version <- installed[pkg, "Version"]
+        
+        # Get latest version from CRAN
+        latest_version <- available.packages()[pkg, "Version"]
+        
+        # Compare versions
+        status <- if(installed_version == latest_version) {
+          "Up to date"
+        } else {
+          "Update available"
+        }
+        
+        package_info <- rbind(package_info, data.frame(
+          Package = pkg,
+          Installed_Version = installed_version,
+          Latest_Version = latest_version,
+          Status = status,
+          stringsAsFactors = FALSE
+        ))
+      } else {
+        package_info <- rbind(package_info, data.frame(
+          Package = pkg,
+          Installed_Version = "Not installed",
+          Latest_Version = available.packages()[pkg, "Version"],
+          Status = "Not installed",
+          stringsAsFactors = FALSE
+        ))
+      }
+    }, error = function(e) {
+      package_info <- rbind(package_info, data.frame(
+        Package = pkg,
+        Installed_Version = if(pkg %in% rownames(installed)) installed[pkg, "Version"] else "Not installed",
+        Latest_Version = "Unknown",
+        Status = "Error checking",
+        stringsAsFactors = FALSE
+      ))
+    })
+  }
+  
+  return(package_info)
+}
+```
+# Save package list
+
+```{r}
+# Get version information of all packages
+package_versions <- get_package_versions(necessary_packages)
+
+# show the results
+print(package_versions, row.names = FALSE)
+
+# write the list of packages and version info to CSV
+write.csv(package_versions, "package_versions_R_CausalInference.csv", row.names = FALSE)
+
+```
+
+
+```{r}
+
+#Note: CausalInference could be installed with：
+#     ctv::install.views("CausalInference", coreOnly = TRUE)
+#Note: “rgeos", "regdal","ggcoefplot" have been removed from the CRAN repository.
+```
+
