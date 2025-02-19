@@ -1,0 +1,609 @@
+---
+title: "chapter 3 regression"
+author: "Peng"
+date: "2024-06-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r load packages, message=FALSE, warning=FALSE}
+#install.packages("clubSandwich")
+library(readr)
+
+library(fixest) 
+library(tidyverse)
+library(plm)
+#library(stargazer)
+library(sandwich)
+library(lmtest)
+
+```
+
+```{r}
+library(tmap)
+library(sf)
+library(spdep)
+library(ggplot2)
+library(deldir)
+library(sp)
+library(purrr)
+library(geodaData)
+```
+
+
+```{r}
+setwd("D:/Rproject_202409/model_complex_feols/complex_1000m_feols")
+```
+
+
+```{r}
+getwd()
+```
+
+# Simple estimation using three year indicators
+
+```{r}
+library(fixest)
+
+# List of school IDs
+schoolid_list <- c(316, 319, 320, 321, 324, 326, 327, 328, 331, 334, 336, 337, 338, 339, 340, 343)
+```
+# 316
+```{r}
+schoolid = 316
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+    
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(inzone_schoolid_316) * as.factor(threeyears_316) + 
+      as.factor(inzone_schoolid_316) + as.factor(threeyears_316) + 
+      as.factor(inzone_schoolid_319) + as.factor(inzone_schoolid_321) + as.factor(inzone_schoolid_320) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) +     as.factor(inzone_schoolid_331) +as.factor(inzone_schoolid_336)  + as.factor(inzone_schoolid_343)
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid, "_belt_3yrs_complex_papanui+3",".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+# 319
+
+
+```{r}
+schoolid = 319
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(inzone_schoolid_319) * as.factor(threeyears_319) + 
+      as.factor(inzone_schoolid_319) + as.factor(threeyears_319) +     
+  as.factor(inzone_schoolid_316) ++ as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331) + as.factor(inzone_schoolid_334) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_343)
+   
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid,"_belt_3yrs_complex_burnside+3", ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+       
+ 
+
+# 320
+```{r}
+schoolid = 320
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(inzone_schoolid_320) * as.factor(threeyears_320) + 
+      as.factor(inzone_schoolid_320) + as.factor(threeyears_320)+ 
+      
+  as.factor(inzone_schoolid_316) +  as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337) +   as.factor(inzone_schoolid_343)
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid,"_belt_3yrs_complex_maori+5", ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+
+
+# 321
+
+```{r}
+schoolid = 321
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+    
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(inzone_schoolid_321) * as.factor(threeyears_321) + 
+      as.factor(inzone_schoolid_321) + as.factor(threeyears_321) +   as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_320) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337)  + as.factor(inzone_schoolid_343)
+   
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid, "_belt_3yrs_complex_shirleyboys+3",".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+
+
+
+# 324
+
+```{r}
+schoolid = 324
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(inzone_schoolid_324) * as.factor(threeyears_324) + 
+      as.factor(inzone_schoolid_324) + as.factor(threeyears_324)  + as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_320) + 
+    as.factor(inzone_schoolid_321) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337)  + as.factor(inzone_schoolid_343) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_328) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + 
+   as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337)  + as.factor(inzone_schoolid_343)
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid, "_belt_3yrs_complex_avongirls+4",".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+```{r}
+```
+
+# 326
+
+```{r}
+schoolid = 326
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+unique(df_sub2$inzone_schoolid_316)
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + 
+    as.factor(CL_Bathrooms) + as.factor(CL_MAS_Free_Standing_Garages) + 
+    as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+    as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + 
+    as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+    as.factor(CL_MAS_Modernisation) + as.factor(CL_MAS_Landscaping_Quality) + 
+    as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + 
+    as.factor(inzone_schoolid_326) * as.factor(threeyears_326) + 
+    as.factor(inzone_schoolid_326) + as.factor(threeyears_326) + 
+    as.factor(inzone_schoolid_316)  + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_328) + as.factor(inzone_schoolid_327) + 
+  as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337) +  
+    as.factor(inzone_schoolid_339) + as.factor(inzone_schoolid_340)+ as.factor(inzone_schoolid_320) 
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("schoolid_", schoolid, "belt_3yrs_complex",".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+
+
+# 327
+
+   
+```{r}
+schoolid = 327
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_327) * as.factor(threeyears_327) + 
+      as.factor(innerbelt_1000m_schoolid_327) + as.factor(threeyears_327) + 
+       as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_319) + as.factor(inzone_schoolid_320) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331) + as.factor(inzone_schoolid_334) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337) +  
+    as.factor(inzone_schoolid_339)  + as.factor(inzone_schoolid_343)
+   
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("chboys+6_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```    
+
+# 328
+
+```{r}
+schoolid = 328
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_328) * as.factor(threeyears_328) + 
+      as.factor(innerbelt_1000m_schoolid_328) + as.factor(threeyears_328) + 
+  as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_319) + as.factor(inzone_schoolid_320) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + 
+    as.factor(inzone_schoolid_331) + as.factor(inzone_schoolid_334) + as.factor(inzone_schoolid_336) +as.factor(inzone_schoolid_337)  + 
+    as.factor(inzone_schoolid_339) + as.factor(inzone_schoolid_343)
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("chchgirls+6_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+# 331
+give up, state-integrated school with largest school zone, which overlap with others, so could not control for other schools
+```{r}
+schoolid = 331
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+complexmodel<-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+    as.factor(inzone_schoolid_331) * as.factor(threeyears_331) + 
+    as.factor(inzone_schoolid_331) + as.factor(threeyears_331)   
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("500m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+# 334
+
+
+```{r}
+schoolid = 334
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_334) * as.factor(threeyears_334) + 
+      as.factor(innerbelt_1000m_schoolid_334) + as.factor(threeyears_334) + 
+      as.factor(inzone_schoolid_319) +  as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_336) +  as.factor(inzone_schoolid_338)   
+   
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("riccarton+4_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+# 336
+
+```{r}
+schoolid = 336
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_500m_schoolid_336) * as.factor(threeyears_336) + 
+      as.factor(innerbelt_500m_schoolid_336) + as.factor(threeyears_336)+ 
+ as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_319) + as.factor(inzone_schoolid_320) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331) + as.factor(inzone_schoolid_334) + as.factor(inzone_schoolid_337) + 
+    as.factor(inzone_schoolid_339) + as.factor(inzone_schoolid_340) + as.factor(inzone_schoolid_343)   
+   
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("hagley+6_500m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+
+# 337
+
+
+```{r}
+schoolid = 337
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_337) * as.factor(threeyears_337) + 
+      as.factor(innerbelt_1000m_schoolid_337) + as.factor(threeyears_337)+ 
+
+     as.factor(inzone_schoolid_320) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331) +  
+    as.factor(inzone_schoolid_339) + as.factor(inzone_schoolid_340) + as.factor(inzone_schoolid_343)
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("linwood+3_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+# 338
+
+
+```{r}
+schoolid = 338
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_338) * as.factor(threeyears_338) + 
+      as.factor(innerbelt_1000m_schoolid_338) + as.factor(threeyears_338)+
+
+    as.factor(inzone_schoolid_334)  + 
+    as.factor(inzone_schoolid_339)  
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("hornby+4_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+# 339
+```{r}
+schoolid = 339
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_339) * as.factor(threeyears_339) + 
+      as.factor(innerbelt_1000m_schoolid_339) + as.factor(threeyears_320)+ 
+       as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331)  + as.factor(inzone_schoolid_336) + as.factor(inzone_schoolid_337) + 
+    as.factor(inzone_schoolid_338) + as.factor(inzone_schoolid_340) 
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("hill+5_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+
+
+
+# 340
+
+
+```{r}
+schoolid = 340
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_340) * as.factor(threeyears_340) + 
+      as.factor(innerbelt_1000m_schoolid_340) + as.factor(threeyears_340) +
+     as.factor(inzone_schoolid_326) +
+    as.factor(inzone_schoolid_331) +  as.factor(inzone_schoolid_336) + as.factor(inzone_schoolid_337) + 
+     as.factor(inzone_schoolid_339) + as.factor(inzone_schoolid_343)
+
+# Run the regression model
+model <- feols(complexformula, data = df_sub2)
+
+summary(model)
+
+
+# Create a table from the model
+model_table <- etable(model)
+# Construct the CSV file name
+csv_name <- paste0("chs+7_1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(model_table, file = csv_name, row.names = TRUE)
+```
+
+# 343
+
+```{r}
+schoolid = 343
+df_sub <- subset(df,
+            (df[[paste0("belt_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("inzone_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_343) * as.factor(threeyears_343) + 
+      as.factor(innerbelt_1000m_schoolid_343) + as.factor(threeyears_343) +    as.factor(inzone_schoolid_316) + as.factor(inzone_schoolid_319) + as.factor(inzone_schoolid_320) + as.factor(inzone_schoolid_321) + 
+    as.factor(inzone_schoolid_324) + as.factor(inzone_schoolid_326) + as.factor(inzone_schoolid_327) + as.factor(inzone_schoolid_328) + 
+    as.factor(inzone_schoolid_331) + as.factor(inzone_schoolid_336) + as.factor(inzone_schoolid_337) + 
+     as.factor(inzone_schoolid_340)
+
+# Run the regression model
+simplemodel <- feols(simpleformula, data = df_sub2)
+
+summary(simplemodel)
+# Create a table from the model
+simplemodel_table <- etable(simplemodel)
+# Construct the CSV file name
+simplecsv_name <- paste0("1000m_3yrs_complex_schoolid_", schoolid, ".csv")
+# Save the table as a CSV file
+write.csv(simplemodel_table, file = simplecsv_name, row.names = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
