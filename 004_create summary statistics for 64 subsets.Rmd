@@ -1,0 +1,129 @@
+---
+title: "Generation of 64 subsets"
+author: "Peng Sun"
+date: "2024-09-18"
+output: html_document
+---
+
+df and school_list already loaded
+
+```{r}
+# Function to calculate count and percentage for categorical variables
+categorical_summary <- function(df, var) {
+  df %>%
+    count(!!sym(var)) %>%
+    mutate(percentage = n / sum(n) * 100)
+}
+```
+
+```{r}
+# List of categorical variables
+categorical_vars <- c(
+  "CL_Suburb", "CL_Town", "CL_RegionName", "CL_TAName", 
+  "CL_Meshblock", "CL_SAU", "CL_Sale_Tenure",  "CL_Bldg_Const", "CL_Bldg_Cond", "CL_Roof_Const", 
+  "CL_Roof_Cond", "CL_Category", "CL_LUD_Age", "CL_LUD_Land_Use_Description", 
+  "CL_MAS_Class_Surrounding_Improvmnt_Type", "CL_MAS_Contour", "CL_MAS_View", 
+  "CL_MAS_View_Scope", "CL_MAS_Modernisation", "CL_MAS_House_Type_Description", 
+  "CL_MAS_Deck_Indicator", "CL_MAS_Driveway_Indicator", "CL_MAS_No_Main_Roof_Garages", 
+  "CL_MAS_Free_Standing_Garages", "CL_MAS_Landscaping_Quality"
+)
+
+# List of numeric variables
+numeric_vars <- c(
+  "lp",  "CL_Building_Floor_Area", "CL_Land_Area",  
+  "CL_Bedrooms", "CL_Bathrooms", "CL_Latitude", "CL_Longitude"
+)
+
+```
+
+# create stats summary for the selected categorical and numeric variables, and create a count table for treatment and groups for all 64 subsets of data
+```{r}
+process_school_data <- function(df, school_id) {
+  
+  # Define column names dynamically for each group based on school_id
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    # create group_name
+    group_name <- gsub("schoolid_", "", outzone_col) 
+    # Summary statistics for numeric variables
+    numeric_summary <- subset_data %>%
+      summarise(across(all_of(numeric_vars), list(mean = mean, sd = sd, median = median), na.rm = TRUE))
+    
+    # Summary statistics for categorical variables
+    categorical_summaries <- lapply(categorical_vars, function(var) {
+      cat_summary <- categorical_summary(subset_data, var)
+      cat_summary$variable <- var  # Add variable name to each summary
+      return(cat_summary)
+    })
+    
+    # Combine summaries of categorical variables into one dataframe
+    categorical_summary_df <- bind_rows(categorical_summaries)
+    
+    # Save numeric and categorical summaries as CSV
+    write.csv(numeric_summary, paste0("numeric_summary_school_", school_id,"_", group_name, ".csv"), row.names = FALSE)
+    write.csv(categorical_summary_df, paste0("categorical_summary_school_", school_id, "_", group_name, ".csv"), row.names = FALSE)
+    
+    # Create a table for mean and count of each condition
+    counts_table <- tibble(
+      condition = c(
+        "inzone & after",
+        "inzone & before",
+        "outzone & before",
+        "outzone & after"
+      ),
+      count = c(
+        nrow(filter(subset_data, !!sym(inzone_col) == 1 & !!sym(before_after_col) == 1)),
+        nrow(filter(subset_data, !!sym(inzone_col) == 1 & !!sym(before_after_col) == 0)),
+        nrow(filter(subset_data, !!sym(outzone_col) == 1 & !!sym(before_after_col) == 0)),
+        nrow(filter(subset_data, !!sym(outzone_col) == 1 & !!sym(before_after_col) == 1))
+      ),
+      mean_lp = c(
+        mean(filter(subset_data, !!sym(inzone_col) == 1 & !!sym(before_after_col) == 1)$lp, na.rm = TRUE),
+        mean(filter(subset_data, !!sym(inzone_col) == 1 & !!sym(before_after_col) == 0)$lp, na.rm = TRUE),
+        mean(filter(subset_data, !!sym(outzone_col) == 1 & !!sym(before_after_col) == 0)$lp, na.rm = TRUE),
+        mean(filter(subset_data, !!sym(outzone_col) == 1 & !!sym(before_after_col) == 1)$lp, na.rm = TRUE)
+      )
+    )
+    
+    # Save counts table as CSV
+    write.csv(counts_table, paste0("counts_table_school_", school_id, "_", group_name, ".csv"), row.names = FALSE)
+  }
+}
+```
+
+```{r}
+
+# Apply the function to each school_id in the list
+for (school_id in schoolid_list) {
+  process_school_data(df, school_id)
+}
+```
+
+
+    
