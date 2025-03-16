@@ -1,0 +1,554 @@
+---
+title: "02_analysis_of_multiple_subsamples"
+author: "Peng Sun"
+date: "2024-09-17"
+output: html_document
+---
+```{r}
+getwd()
+```
+## Load Packages
+
+```{r}
+library(coefplot) 
+```
+
+```{r}
+# Load necessary libraries
+library(readr)
+library(tidyverse)
+library(tidymodels)
+library(broom)
+library(ggplot2)
+```
+
+
+
+## Load Data 
+```{r}
+df<-read.csv("christchurch_cleaned.csv")
+names(df)
+# create a list of variables to keep in the dataset, similarly I can also get the same result by creating a list of columns to drop. 
+columns_to_keep <- c(
+  "CL_QPID", "CL_Sale_ID", "CL_Suburb", "CL_Town", "CL_RegionName", "CL_TAName", 
+  "CL_Meshblock", "CL_SAU", "CL_Sale_Tenure", "CL_Sale_Price_Value_Relationship", 
+  "CL_Sale_Date", "CL_Building_Floor_Area", "CL_Land_Area", "CL_Bldg_Const", 
+  "CL_Bldg_Cond", "CL_Roof_Const", "CL_Roof_Cond", "CL_Category", "CL_LUD_Age", 
+  "CL_LUD_Land_Use_Description", "CL_MAS_Class_Surrounding_Improvmnt_Type", 
+  "CL_MAS_Contour", "CL_MAS_View", "CL_MAS_View_Scope", "CL_MAS_Modernisation", 
+  "CL_MAS_House_Type_Description", "CL_MAS_Deck_Indicator", "CL_MAS_Driveway_Indicator", 
+  "CL_MAS_No_Main_Roof_Garages", "CL_MAS_Free_Standing_Garages", "CL_MAS_Landscaping_Quality", 
+  "CL_MAS_Lot_Position", "CL_Val_Ref", "CL_Latitude", "CL_Longitude", "CL_Bedrooms", 
+  "CL_Bathrooms", "lp", "year", "quarter", "inzone_schoolid_316", "belt_schoolid_316", 
+  "before_SchoolID_316", "after_SchoolID_316", "inzone_schoolid_319", "belt_schoolid_319", 
+  "before_SchoolID_319", "after_SchoolID_319", "inzone_schoolid_320", "belt_schoolid_320", 
+  "before_SchoolID_320", "after_SchoolID_320", "inzone_schoolid_321", "belt_schoolid_321", 
+  "before_SchoolID_321", "after_SchoolID_321", "inzone_schoolid_324", "belt_schoolid_324", 
+  "before_SchoolID_324", "after_SchoolID_324", "inzone_schoolid_326", "belt_schoolid_326", 
+  "before_SchoolID_326", "after_SchoolID_326", "inzone_schoolid_327", "belt_schoolid_327", 
+  "before_SchoolID_327", "after_SchoolID_327", "inzone_schoolid_328", "belt_schoolid_328", 
+  "before_SchoolID_328", "after_SchoolID_328", "inzone_schoolid_331", "belt_schoolid_331", 
+  "before_SchoolID_331", "after_SchoolID_331", "inzone_schoolid_334", "belt_schoolid_334", 
+  "before_SchoolID_334", "after_SchoolID_334", "inzone_schoolid_336", "belt_schoolid_336", 
+  "before_SchoolID_336", "after_SchoolID_336", "inzone_schoolid_337", "belt_schoolid_337", 
+  "before_SchoolID_337", "after_SchoolID_337", "inzone_schoolid_338", "belt_schoolid_338", 
+  "before_SchoolID_338", "after_SchoolID_338", "inzone_schoolid_339", "belt_schoolid_339", 
+  "before_SchoolID_339", "after_SchoolID_339", "inzone_schoolid_340", "belt_schoolid_340", 
+  "before_SchoolID_340", "after_SchoolID_340", "inzone_schoolid_343", "belt_schoolid_343", 
+  "before_SchoolID_343", "after_SchoolID_343", "outerbelt_1000m_schoolid_316", 
+  "outerbelt_1000m_schoolid_319", "outerbelt_1000m_schoolid_320", "outerbelt_1000m_schoolid_321", 
+  "outerbelt_1000m_schoolid_324", "outerbelt_1000m_schoolid_326", "outerbelt_1000m_schoolid_327", 
+  "outerbelt_1000m_schoolid_328", "outerbelt_1000m_schoolid_331", "outerbelt_1000m_schoolid_334", 
+  "outerbelt_1000m_schoolid_336", "outerbelt_1000m_schoolid_337", "outerbelt_1000m_schoolid_338", 
+  "outerbelt_1000m_schoolid_339", "outerbelt_1000m_schoolid_340", "outerbelt_1000m_schoolid_343", 
+  "innerbelt_1000m_schoolid_316", "innerbelt_1000m_schoolid_319", "innerbelt_1000m_schoolid_320", 
+  "innerbelt_1000m_schoolid_321", "innerbelt_1000m_schoolid_324", "innerbelt_1000m_schoolid_326", 
+  "innerbelt_1000m_schoolid_327", "innerbelt_1000m_schoolid_328", "innerbelt_1000m_schoolid_331", 
+  "innerbelt_1000m_schoolid_334", "innerbelt_1000m_schoolid_336", "innerbelt_1000m_schoolid_337", 
+  "innerbelt_1000m_schoolid_338", "innerbelt_1000m_schoolid_339", "innerbelt_1000m_schoolid_340", 
+  "innerbelt_1000m_schoolid_343", "innerbelt_500m_schoolid_316", "innerbelt_500m_schoolid_319", 
+  "innerbelt_500m_schoolid_320", "innerbelt_500m_schoolid_321", "innerbelt_500m_schoolid_324", 
+  "innerbelt_500m_schoolid_326", "innerbelt_500m_schoolid_327", "innerbelt_500m_schoolid_328", 
+  "innerbelt_500m_schoolid_331", "innerbelt_500m_schoolid_334", "innerbelt_500m_schoolid_336", 
+  "innerbelt_500m_schoolid_337", "innerbelt_500m_schoolid_338", "innerbelt_500m_schoolid_339", 
+  "innerbelt_500m_schoolid_340", "innerbelt_500m_schoolid_343", "outerbelt_500m_schoolid_316", 
+  "outerbelt_500m_schoolid_319", "outerbelt_500m_schoolid_320", "outerbelt_500m_schoolid_321", 
+  "outerbelt_500m_schoolid_324", "outerbelt_500m_schoolid_326", "outerbelt_500m_schoolid_327", 
+  "outerbelt_500m_schoolid_328", "outerbelt_500m_schoolid_331", "outerbelt_500m_schoolid_334", 
+  "outerbelt_500m_schoolid_336", "outerbelt_500m_schoolid_337", "outerbelt_500m_schoolid_338", 
+  "outerbelt_500m_schoolid_339", "outerbelt_500m_schoolid_340", "outerbelt_500m_schoolid_343", 
+  "outerbelt_5000m_schoolid_316", "outerbelt_5000m_schoolid_319", "outerbelt_5000m_schoolid_320", 
+  "outerbelt_5000m_schoolid_321", "outerbelt_5000m_schoolid_324", "outerbelt_5000m_schoolid_326", 
+  "outerbelt_5000m_schoolid_327", "outerbelt_5000m_schoolid_328", "outerbelt_5000m_schoolid_331", 
+  "outerbelt_5000m_schoolid_334", "outerbelt_5000m_schoolid_336", "outerbelt_5000m_schoolid_337", 
+  "outerbelt_5000m_schoolid_338", "outerbelt_5000m_schoolid_339", "outerbelt_5000m_schoolid_340", 
+  "outerbelt_5000m_schoolid_343", "threeyears_320", "threeyears_319", "threeyears_321", 
+  "threeyears_324", "threeyears_327", "threeyears_328", "threeyears_334", "threeyears_336", 
+  "threeyears_340", "threeyears_316", "threeyears_338", "threeyears_337", "threeyears_339", 
+  "threeyears_343", "threeyears_331", "threeyears_326"
+)
+# Only keep columns selected above
+df <- df[, columns_to_keep, drop = FALSE]
+```
+## Load dates data
+
+```{r}
+dates<-read.csv("Chch_dates.csv")
+```
+```{r}
+head(dates)
+```
+## load school profile data
+```{r}
+schools<-read.csv("directory with decile.csv") 
+```
+
+```{r}
+head(schools)
+```
+
+```{r}
+names(schools)
+```
+
+
+```{r}
+columns<-c("School.Number", "Decile" ,"Total.School.Roll", "Latitude", "Longitude")
+# Only keep columns selected above
+schools <-schools[, columns, drop = FALSE]
+```
+```{r}
+head(schools)
+```
+
+
+
+```{r}
+school_dates<-merge(dates, schools, by.x = "SchoolID", by.y = "School.Number")
+```
+
+```{r}
+head(school_dates)
+```
+```{r}
+school_dates <- school_dates %>% select(-X)
+```
+```{r}
+head(school_dates)
+```
+
+
+## Create year_month variable
+
+
+```{r}
+head(df$CL_Sale_Date)
+```
+```{r}
+class(df$CL_Sale_Date)
+```
+```{r}
+d <-as.Date(df$CL_Sale_Date)
+```
+
+```{r}
+class(d)
+```
+```{r}
+d<- format(d, "%Y-%m")
+```
+```{r}
+class(d)
+```
+```{r}
+df$year_month <- d
+```
+
+```{r}
+# Convert the 'year_month' column to a Date object
+df$year_month <- as.Date(paste0(df$year_month, "-01"), format = "%Y-%m-%d")
+
+```
+
+
+
+```{r}
+school_dates$Approval.Date<-as.Date(school_dates$Approval.Date)
+school_dates$year_month <- format(school_dates$Approval.Date, "%Y-%m")
+```
+
+```{r}
+class(school_dates$year_month)
+```
+```{r}
+# Convert the 'year_month' column to a Date object
+school_dates$year_month <- as.Date(paste0(school_dates$year_month, "-01"), format = "%Y-%m-%d")
+
+```
+
+```{r}
+school_dates
+```
+
+
+
+## Get Schoolid List using variable names in df
+An easier way to get the schoolid list is to use the dates dataset. 
+
+```{r}
+ # code to extract the list of schoolids based on variables names "threeyears_..."
+# Define the pattern to filter column names (e.g., columns starting with "threeyears_" followed by four digits)
+pattern <- "^threeyears_\\d{3}$"
+# Use grepl() to get a logical vector of columns that match the pattern
+filtered_columns <- names(df)[grepl(pattern, names(df))]
+```
+```{r}
+filtered_columns
+```
+```{r}
+# Use regular expressions to extract the four-digit numbers after "threeyears_"
+extracted_numbers <- sub("threeyears_(\\d{3})", "\\1", filtered_columns)
+# Convert the extracted numbers to numeric (i.e., the school IDs)
+schoolid_list <- as.numeric(extracted_numbers)
+# Print the extracted school IDs
+print(schoolid_list)
+```
+```{r}
+class(schoolid_list)
+```
+```{r}
+print(as.list(schoolid_list))
+```
+
+```{r}
+# 319_500m 
+  # file_path
+  file_path<- "D:\Rproject_202409\subset_school_319_innerbelt_500m_319.csv"
+  # Read the CSV file  
+  subset_data <- read.csv(file_path)
+  # create formula with controls of other schools
+  controls<-c(316, 327,328,331,334,336,343)
+    # Create the formula component for remaining school IDs
+  control_component <- paste0("as.factor(inzone_schoolid_", controls, ")", collapse = " + ")
+    # Create the full formula using paste0()
+  
+  
+  # create simple formula
+  simple_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+  control_string<- paste0(
+  "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+  "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+  "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+  "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+  "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+  "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+  "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+  control_component
+  )
+  control_formula <- as.formula(control_string)
+```
+
+
+
+
+
+```{r}
+
+# Define a list to hold the formulas
+formulas_list <- list()
+# loop through schoolid_list to get regression results for all models estimated using OLS only
+for (school_id in schoolid_list) {
+
+  # Construct the file name using paste0() and school_id
+  file_name <- paste0("subset_school_", school_id, ".csv")
+
+  # Read the CSV file using the dynamically constructed file name
+  subset_data <- read.csv(file_name)
+
+ # create simple formula
+  simple_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+  # create complex formula
+  full_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation)+",
+    "as.factor(CL_MAS_Landscaping_Quality)+as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type)+", 
+     "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+
+  # create formula with controls of other schools
+  remaining_schools <- schoolid_list[schoolid_list != school_id]
+    # Create the formula component for remaining school IDs
+  control_component <- paste0("as.factor(inzone_schoolid_", remaining_schools, ")", collapse = " + ")
+    # Create the full formula using paste0()
+
+  control_string<- paste0(
+  "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+  "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+  "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+  "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+  "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+  "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+  "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+  control_component
+  )
+  control_formula <- as.formula(control_string)
+  
+  # Store formulas in the list with {school_id} suffix
+  formulas_list[[paste0("simple_", school_id)]] <- simple_formula
+  formulas_list[[paste0("full_", school_id)]] <- full_formula
+  formulas_list[[paste0("control_", school_id)]] <- control_formula
+  
+  # Run regression: Example formula (replace with relevant model)
+  model1 <- lm(simple_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+  model1_summary <- tidy(model1)
+  
+  # Save regression results as CSV
+  write.csv(model1_summary, paste0("500m_model1_school_", school_id, ".csv"), row.names = FALSE)
+  
+
+  
+    # Run regression: Example formula (replace with relevant model)
+  #model2 <- lm(full_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+  #model2_summary <- tidy(model2)
+  
+  # Save regression results as CSV
+  #write.csv(model2_summary, paste0("500m_model2_school_", school_id, ".csv"), row.names = FALSE)
+  
+      # Run regression: Example formula (replace with relevant model)
+ #model3 <- lm(control_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+ #model3_summary <- tidy(model3)
+  
+  # Save regression results as CSV
+ #write.csv(model3_summary, paste0("model3_school_", school_id, ".csv"), row.names = FALSE)
+
+}
+```
+```{r}
+control_formula
+```
+
+# update control_component 
+
+
+```{r}
+
+# Define a list to hold the formulas
+formulas_list <- list()
+
+for (school_id in schoolid_list) {
+# create formula with controls of other schools
+  remaining_schools <- schoolid_list[schoolid_list != school_id]
+    # Create the formula component for remaining school IDs
+  control_component <- paste0("as.factor(inzone_schoolid_", remaining_schools, ")", collapse = " + ")
+    # Create the full formula using paste0()
+
+  control_string<- paste0(
+  "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+  "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+  "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+  "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+  "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+  "CL_QPID + CL_Sale_ID + CL_Suburb + CL_Town + CL_RegionName + CL_TAName + ",
+  "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+  "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+  control_component
+  )
+  control_formula <- as.formula(control_string)
+  
+  # Store formulas in the list with {school_id} suffix
+  formulas_list[[paste0("simple_", school_id)]] <- simple_formula
+  formulas_list[[paste0("full_", school_id)]] <- full_formula
+  formulas_list[[paste0("control_", school_id)]] <- control_formula
+}  
+```
+
+```{r}
+control_component
+```
+
+```{r}
+class(formulas_list)
+```
+
+
+```{r}
+formulas_list
+```
+
+
+ 
+ 
+```{r}
+schoolid_list2<-c(320, 319, 321, 324, 327, 328, 334, 336, 340, 338, 337, 339, 343, 331, 326 )# take 316 out of the schoolid_list
+# Define a list to hold the formulas
+formulas_list <- list()
+for (school_id in schoolid_list2) {
+
+  # Construct the file name using paste0() and school_id
+  file_name <- paste0("subset_school_", school_id, ".csv")
+
+  # Read the CSV file using the dynamically constructed file name
+  subset_data <- read.csv(file_name)
+
+ # create simple formula
+  simple_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+  # create complex formula
+  full_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation)+",
+    "as.factor(CL_MAS_Landscaping_Quality)+as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type)+", 
+     "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+  
+  # create formula with controls of other schools
+  remaining_schools <- schoolid_list[schoolid_list != school_id]
+    # Create the formula component for remaining school IDs
+  control_component <- paste0("as.factor(", remaining_schools, ")", collapse = " + ")
+    # Create the full formula using paste0()
+
+  control_string<- paste0(
+  "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+  "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+  "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+  "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+  "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+  "CL_QPID + CL_Sale_ID + CL_Suburb + CL_Town + CL_RegionName + CL_TAName + ",
+  "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+  "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+  control_component
+  )
+  control_formula <- as.formula(control_string)
+  
+  # Store formulas in the list with {school_id} suffix
+  formulas_list[[paste0("simple_", school_id)]] <- simple_formula
+  formulas_list[[paste0("full_", school_id)]] <- full_formula
+  formulas_list[[paste0("control_", school_id)]] <- control_formula
+  
+  # Run regression: Example formula (replace with relevant model)
+  #model1 <- lm(simple_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+  #model1_summary <- tidy(model1)
+  
+  # Save regression results as CSV
+  #write.csv(model1_summary, paste0("500m_model1_school_", school_id, ".csv"), row.names = FALSE)
+  
+    # Run regression: Example formula (replace with relevant model)
+  model2 <- lm(full_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+  model2_summary <- tidy(model2)
+  
+  # Save regression results as CSV
+  write.csv(model2_summary, paste0("500m_model2_school_", school_id, ".csv"), row.names = FALSE)
+  
+      # Run regression: Example formula (replace with relevant model)
+ #model3 <- lm(control_formula, data = subset_data)
+  
+  # Get tidy summary of regression
+ #model3_summary <- tidy(model3)
+  
+  # Save regression results as CSV
+ #write.csv(model3_summary, paste0("model3_school_", school_id, ".csv"), row.names = FALSE)
+
+}
+```
+
+```{r}
+# get a summary fo categorical variables:
+
+# Check the levels of a factor variable
+summary(subset_data$ )
+```
+
+
+
+```{r}
+# loop for control formula
+
+# Define a list to hold the formulas
+formulas_list <- list()
+
+for (school_id in schoolid_list) {
+# create formula with controls of other schools
+  remaining_schools <- schoolid_list[schoolid_list != school_id]
+    # Create the formula component for remaining school IDs
+  control_component <- paste0("as.factor(inzone_schoolid_", remaining_schools, ")", collapse = " + ")
+    # Create the full formula using paste0()
+  control_string <- paste0(
+  "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+  "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+  "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+  "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+  "as.factor(CL_MAS_Landscaping_Quality) + ",
+  "as.factor(CL_Bldg_Const) + as.factor(CL_Bldg_Cond) + as.factor(CL_Roof_Const) + as.factor(CL_Roof_Cond) + ",
+  "as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+  "as.factor(CL_MAS_View) + as.factor(CL_MAS_View_Scope) + as.factor(CL_MAS_Driveway_Indicator) + ",
+  "as.factor(CL_Category) + as.factor(CL_MAS_House_Type_Description) + ",
+  "as.factor(CL_MAS_Lot_Position) + ",
+  "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+  "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+  control_component
+  )
+
+  control_formula <- as.formula(control_string)
+  
+  # Store formulas in the list with {school_id} suffix
+
+  formulas_list[[paste0("control_", school_id)]] <- control_formula
+    # Construct the file name using paste0() and school_id
+  file_name <- paste0("subset_school_", school_id, ".csv")
+
+  # Read the CSV file using the dynamically constructed file name
+  subset_data <- read.csv(file_name)
+   # Run regression: Example formula (replace with relevant model)
+  model3 <- lm(control_formula, data = na.omit(subset_data))
+  
+  # Get tidy summary of regression
+  model3_summary <- tidy(model3)
+  
+  # Save regression results as CSV
+  write.csv(model3_summary, paste0("model3_school_", school_id, ".csv"), row.names = FALSE)
+
+  
+}  
+```
+
