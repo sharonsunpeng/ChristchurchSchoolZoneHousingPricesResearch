@@ -1,0 +1,2522 @@
+---
+title: "chapter 3 regression"
+author: "Peng"
+date: "2024-06-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+Note: run these model after loading packages and datasets
+
+# Spatial Models
+## SchoolID 320
+### Create dataset
+
+```{r}
+schoolid = 320
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+
+```
+
+```{r}
+dim(df_sub2)
+```
+
+```{r}
+dim(df_sub2[, df_sub2[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 ]])
+```
+
+
+```{r}
+# in order to create a spatial weight based on Meshblock, I need to drop the 1695 records without Meshblock for this subset of data for schoolzone 320. 
+sum(is.na(df_sub2$CL_Meshblock))
+```
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+
+```
+
+```{r}
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+```
+
+
+```{r}
+# check if any na in the weight_matrix
+any(is.na(weight_matrix))
+
+```
+
+
+```{r}
+# Convert the weight matrix to a list format
+library(spdep)
+nb <- mat2listw(weight_matrix, style = "B")
+```
+
+```{r}
+# covert the row-standardized weight matrix to a list format
+
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+```{r}
+head(nb2)
+```
+
+
+```{r}
+spatial_model<-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_320) * as.factor(threeyears_320) + 
+      as.factor(innerbelt_1000m_schoolid_320) + as.factor(threeyears_320)
+```
+
+
+```{r}
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_320) * as.factor(threeyears_320) + 
+      as.factor(innerbelt_1000m_schoolid_320) + as.factor(threeyears_320)+ 
+      as.factor(innerbelt_1000m_schoolid_316)   +   
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_328)     +   
+      as.factor(innerbelt_1000m_schoolid_321) +   
+      as.factor(innerbelt_1000m_schoolid_324)
+```
+
+
+### fit spatial error models with both sparse and complex models
+
+```{r}
+# fit spatial error model with complicate formula
+sem_model2 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model3 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3)
+```
+
+
+```{r}
+sem_model4<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4)
+```
+
+```{r}
+sem_model5<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model5)
+```
+
+
+
+
+```{r}
+#spatial lag
+sem_model6<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model6)
+```
+
+
+
+```{r}
+#sdm
+sem_model7<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+```
+```{r}
+model7_predict=predict(sem_model7)
+```
+```{r}
+class(model7_predict)
+```
+```{r}
+pridted_lp=fitted(sem_model7)
+```
+
+
+```{r}
+summary(sem_model7)
+```
+
+```{r}
+plot(resid(sem_model7))
+```
+
+
+
+# check on parallel trends with fitted_lp for schoolID320_1000m buffer
+
+```{r}
+df_sub2$fitted_lgx_complext =pridted_lp
+
+mean_fitted_lp=aggregate(df_sub2$fitted_lgx_complext, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_320==1), mean)
+names(mean_fitted_lp)=c("Year", "Treatment", "LogHousePrices")
+```
+
+```{r}
+library(ggplot2)
+ggplot(mean_fitted_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2019)
+```
+
+
+# check on parallel trends with lp for schoolID320_1000m buffer
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_320==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2019)
+```
+
+
+# 316
+```{r}
+schoolid = 316
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+head(nb2)
+```
+
+
+## 316 Models
+```{r}
+spatial_model<-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) +  as.factor(innerbelt_1000m_schoolid_316) * as.factor(threeyears_316) + 
+      as.factor(innerbelt_1000m_schoolid_316) + as.factor(threeyears_316)
+  
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_316) * as.factor(threeyears_316) + 
+      as.factor(innerbelt_1000m_schoolid_316) + as.factor(threeyears_316) 
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_316) * as.factor(threeyears_316) + 
+      as.factor(innerbelt_1000m_schoolid_316) + as.factor(threeyears_316) + 
+    
+      as.factor(innerbelt_1000m_schoolid_336)    + 
+      as.factor(innerbelt_1000m_schoolid_327)   + 
+      as.factor(innerbelt_1000m_schoolid_328)
+
+
+```
+
+## 316 Spatial Regression
+
+
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_316 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model1_316)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_316 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2_316)
+```
+
+
+
+```{r}
+sem_model3_316<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3_316)
+```
+
+```{r}
+sem_model4_316<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4_316)
+```
+
+```{r}
+#spatial lag
+sem_model5_316<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model5_316)
+```
+
+```{r}
+#sdm
+sem_model6_316<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model6_316)
+```
+
+
+```{r}
+#sdm
+sem_model7_316<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+summary(sem_model7_316)
+```
+
+
+```{r}
+#sdm
+sem_model8_316<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+```
+ 
+ 
+```{r}
+summary(sem_model8_316)
+```
+ 
+ 
+
+## SchoolID_316 Parrallel Trends with fitted 
+
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_316==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2006)
+```
+
+
+
+# 319
+
+```{r}
+schoolid = 319
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+head(nb2)
+```
+
+```{r}
+
+spatial_model<- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms)+
+  as.factor(year) + as.factor(quarter) +
+       as.factor(innerbelt_1000m_schoolid_319) * as.factor(threeyears_319) + 
+      as.factor(innerbelt_1000m_schoolid_319) + as.factor(threeyears_319) 
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_319) * as.factor(threeyears_319) + 
+      as.factor(innerbelt_1000m_schoolid_319) + as.factor(threeyears_319) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_319) * as.factor(threeyears_319) + 
+      as.factor(innerbelt_1000m_schoolid_319) + as.factor(threeyears_319) + 
+       
+      as.factor(innerbelt_1000m_schoolid_327)   + 
+      as.factor(innerbelt_1000m_schoolid_328)  + 
+      as.factor(innerbelt_1000m_schoolid_334)  
+
+
+```
+
+
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_319 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model1_319)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_319 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2_319)
+```
+
+
+
+```{r}
+sem_model3_319<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3_319)
+```
+
+```{r}
+sem_model4_319<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4_319)
+```
+
+```{r}
+#spatial lag
+sem_model5_319<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model5_319)
+```
+
+```{r}
+#sdm
+sem_model6_319<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model6_319)
+```
+
+```{r}
+#sdm
+sem_model7_319<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+summary(sem_model7_319)
+```
+
+```{r}
+#sdm
+sem_model8_319<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+```
+
+
+```{r}
+summary(sem_model8_319)
+```
+
+
+
+## Parallel Trend SchoolID 319
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_319==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+```
+
+```{r}
+mean_lp
+```
+
+```{r}
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+
+
+
+
+
+# 320
+
+```{r}
+schoolid = 320
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+head(nb2)
+```
+
+```{r}
+
+spatial_model<-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+             as.factor(innerbelt_1000m_schoolid_320) * as.factor(threeyears_320) + 
+             as.factor(innerbelt_1000m_schoolid_320) + as.factor(threeyears_320)
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_320) * as.factor(threeyears_320) + 
+      as.factor(innerbelt_1000m_schoolid_320) + as.factor(threeyears_320)
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_320) * as.factor(threeyears_320) + 
+      as.factor(innerbelt_1000m_schoolid_320) + as.factor(threeyears_320)+ 
+      as.factor(innerbelt_1000m_schoolid_316)   +   
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_328)     +   
+      as.factor(innerbelt_1000m_schoolid_321) +   
+      as.factor(innerbelt_1000m_schoolid_324)
+```
+
+
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_320 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model1_320)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_320 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2_320)
+```
+
+
+
+```{r}
+sem_model3_320<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3_320)
+```
+
+```{r}
+sem_model4_320<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4_320)
+```
+
+```{r}
+#spatial lag
+sem_model5_320<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model5_320)
+```
+
+```{r}
+#sdm
+sem_model6_320<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model6_320)
+```
+
+```{r}
+#sdm
+sem_model7_320<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+summary(sem_model7_320)
+```
+
+```{r}
+#sdm
+sem_model8_320<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_320)
+
+```
+
+# 321
+
+```{r}
+schoolid = 321
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+spatial_model<-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+       as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_321) * as.factor(threeyears_321) + 
+      as.factor(innerbelt_1000m_schoolid_321) + as.factor(threeyears_321)
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_321) * as.factor(threeyears_321) + 
+      as.factor(innerbelt_1000m_schoolid_321) + as.factor(threeyears_321)
+
+    
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_321) * as.factor(threeyears_321) + 
+      as.factor(innerbelt_1000m_schoolid_321) + as.factor(threeyears_321) + 
+      as.factor(innerbelt_1000m_schoolid_324)   +        
+      as.factor(innerbelt_1000m_schoolid_327)   + 
+      as.factor(innerbelt_1000m_schoolid_328)  + 
+      as.factor(innerbelt_1000m_schoolid_336)
+
+```
+
+
+
+### fitting spatial models foor SchoolID 321
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_321 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model1_321)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_321 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2_321)
+```
+
+
+
+```{r}
+sem_model3_321<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3_321)
+```
+
+```{r}
+sem_model4_321<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4_321)
+```
+
+```{r}
+#spatial lag
+sem_model5_321<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model5_321)
+```
+
+```{r}
+#sdm
+sem_model6_321<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model6_321)
+```
+
+```{r}
+#sdm
+sem_model7_321<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+summary(sem_model7_321)
+```
+
+```{r}
+#sdm
+sem_model8_321<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_321)
+
+```
+
+
+
+
+
+```{r}
+plot(resid(simplemodel))
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_321==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+
+
+
+
+# 324
+
+```{r}
+schoolid = 324
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_324) * as.factor(threeyears_324) + 
+      as.factor(innerbelt_1000m_schoolid_324) + as.factor(threeyears_324)
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_324) * as.factor(threeyears_324) + 
+      as.factor(innerbelt_1000m_schoolid_324) + as.factor(threeyears_324) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_324) * as.factor(threeyears_324) + 
+      as.factor(innerbelt_1000m_schoolid_324) + as.factor(threeyears_324) + 
+      as.factor(innerbelt_1000m_schoolid_321)   +        
+      as.factor(innerbelt_1000m_schoolid_327)   + 
+      as.factor(innerbelt_1000m_schoolid_328)  + 
+      as.factor(innerbelt_1000m_schoolid_336) 
+
+```
+
+
+
+
+
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_324 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model1_324)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_324 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model2_324)
+```
+
+
+
+```{r}
+sem_model3_324<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model3_324)
+```
+
+```{r}
+sem_model4_324<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model4_324)
+```
+
+```{r}
+#spatial lag
+sem_model5_324<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+```
+```{r}
+summary(sem_model5_324)
+```
+
+```{r}
+#sdm
+sem_model6_324<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+```
+
+```{r}
+summary(sem_model6_324)
+```
+
+```{r}
+#sdm
+sem_model7_324<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+
+summary(sem_model7_324)
+```
+
+```{r}
+#sdm
+sem_model8_324<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+```
+
+```{r}
+
+summary(sem_model8_324)
+```
+
+
+```{r}
+plot(resid(simplemodel))
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_324==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+# 326
+
+```{r}
+schoolid = 326
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+spatial_model <-lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_326) * as.factor(threeyears_326) + 
+      as.factor(innerbelt_1000m_schoolid_326) + as.factor(threeyears_326) 
+
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_326) * as.factor(threeyears_326) + 
+      as.factor(innerbelt_1000m_schoolid_326) + as.factor(threeyears_326) 
+
+
+```
+
+
+### fitting spatial models foor SchoolID 326
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_326 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_326)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_326 <- errorsarlm(simpleformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_326)
+```
+
+
+
+```{r}
+sem_model3_326<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_326)
+```
+
+```{r}
+sem_model4_326<-GMerrorsar(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_326)
+```
+
+```{r}
+#spatial lag
+sem_model5_326<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_326)
+```
+
+```{r}
+#sdm
+sem_model6_326<-lagsarlm(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_326)
+```
+
+```{r}
+#sdm
+sem_model7_326<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_326)
+```
+
+```{r}
+#sdm
+sem_model8_326<-lagsarlm(simpleformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_326)
+
+```
+
+
+
+
+
+```{r}
+plot(resid(simplemodel))
+
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_326==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2014)
+```
+
+# 327
+
+```{r}
+schoolid = 327
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_327) * as.factor(threeyears_327) + 
+      as.factor(innerbelt_1000m_schoolid_327) + as.factor(threeyears_327) 
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_327) * as.factor(threeyears_327) + 
+      as.factor(innerbelt_1000m_schoolid_327) + as.factor(threeyears_327) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_327) * as.factor(threeyears_327) + 
+      as.factor(innerbelt_1000m_schoolid_327) + as.factor(threeyears_327) + 
+      as.factor(innerbelt_1000m_schoolid_319)   +        
+      as.factor(innerbelt_1000m_schoolid_321)   + 
+      as.factor(innerbelt_1000m_schoolid_324)  + 
+      as.factor(innerbelt_1000m_schoolid_328)  + 
+      as.factor(innerbelt_1000m_schoolid_334)   + 
+      as.factor(innerbelt_1000m_schoolid_336)  
+
+
+```
+
+
+### fitting spatial models foor SchoolID 327
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_327 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_327)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_327 <- errorsarlm(simpleformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_327)
+```
+
+
+
+```{r}
+sem_model3_327<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_327)
+```
+
+```{r}
+sem_model4_327<-GMerrorsar(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_327)
+```
+
+```{r}
+#spatial lag
+sem_model5_327<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_327)
+```
+
+```{r}
+#sdm
+sem_model6_327<-lagsarlm(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_327)
+```
+
+```{r}
+#sdm
+sem_model7_327<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_327)
+```
+
+```{r}
+#sdm
+sem_model8_327<-lagsarlm(simpleformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_327)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_327==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+# 328
+```{r}
+schoolid = 328
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_328) * as.factor(threeyears_328) + 
+      as.factor(innerbelt_1000m_schoolid_328) + as.factor(threeyears_328) 
+
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_328) * as.factor(threeyears_328) + 
+      as.factor(innerbelt_1000m_schoolid_328) + as.factor(threeyears_328) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_328) * as.factor(threeyears_328) + 
+      as.factor(innerbelt_1000m_schoolid_328) + as.factor(threeyears_328) + 
+      as.factor(innerbelt_1000m_schoolid_319)   +        
+      as.factor(innerbelt_1000m_schoolid_321)   + 
+      as.factor(innerbelt_1000m_schoolid_324)  + 
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_334)   + 
+      as.factor(innerbelt_1000m_schoolid_336)
+```
+
+
+
+
+### fitting spatial models foor SchoolID 328
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_328 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_328)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_328 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_328)
+```
+
+
+
+```{r}
+sem_model3_328<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_328)
+```
+
+```{r}
+sem_model4_328<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_328)
+```
+
+```{r}
+#spatial lag
+sem_model5_328<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_328)
+```
+
+```{r}
+
+sem_model6_328<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_328)
+```
+
+```{r}
+#sdm
+sem_model7_328<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_328)
+```
+
+```{r}
+#sdm
+sem_model8_328<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_328)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_328==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+
+# 331
+```{r}
+schoolid = 331
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_331) * as.factor(threeyears_331) + 
+      as.factor(innerbelt_1000m_schoolid_331) + as.factor(threeyears_331) 
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_331) * as.factor(threeyears_331) + 
+      as.factor(innerbelt_1000m_schoolid_331) + as.factor(threeyears_331) 
+
+```
+
+
+
+
+
+
+### fitting spatial models foor SchoolID 331
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_331 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_331)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_331<- errorsarlm(simpleformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_331)
+```
+
+
+
+```{r}
+sem_model3_331<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_331)
+```
+
+```{r}
+sem_model4_331<-GMerrorsar(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_331)
+```
+
+```{r}
+#spatial lag
+sem_model5_331<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_331)
+```
+
+```{r}
+
+sem_model6_331<-lagsarlm(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_331)
+```
+
+```{r}
+#sdm
+sem_model7_331<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_331)
+```
+
+```{r}
+#sdm
+sem_model8_331<-lagsarlm(simpleformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_331)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+#plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_331==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2008)
+```
+
+
+# 334
+```{r}
+schoolid = 334
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_334) * as.factor(threeyears_334) + 
+      as.factor(innerbelt_1000m_schoolid_334) + as.factor(threeyears_334)
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_334) * as.factor(threeyears_334) + 
+      as.factor(innerbelt_1000m_schoolid_334) + as.factor(threeyears_334)
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_334) * as.factor(threeyears_334) + 
+      as.factor(innerbelt_1000m_schoolid_334) + as.factor(threeyears_334) + 
+      as.factor(innerbelt_1000m_schoolid_319)   +        
+
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_328)   + 
+      as.factor(innerbelt_1000m_schoolid_336)  
+```
+
+
+
+
+### fitting spatial models foor SchoolID 334
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_334 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_334)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_334 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_334)
+```
+
+
+
+```{r}
+sem_model3_334<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_334)
+```
+
+```{r}
+sem_model4_334<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_334)
+```
+
+```{r}
+#spatial lag
+sem_model5_334<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_334)
+```
+
+```{r}
+
+sem_model6_334<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_334)
+```
+
+```{r}
+#sdm
+sem_model7_334<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_334)
+```
+
+```{r}
+#sdm
+sem_model8_334<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_334)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_334==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+# 336
+
+```{r}
+schoolid = 336
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_336) * as.factor(threeyears_336) + 
+      as.factor(innerbelt_1000m_schoolid_336) + as.factor(threeyears_336) 
+
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_336) * as.factor(threeyears_336) + 
+      as.factor(innerbelt_1000m_schoolid_336) + as.factor(threeyears_336) 
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_336) * as.factor(threeyears_336) + 
+      as.factor(innerbelt_1000m_schoolid_336) + as.factor(threeyears_336)+ 
+      as.factor(innerbelt_1000m_schoolid_319)   +   
+      as.factor(innerbelt_1000m_schoolid_321) +   
+      as.factor(innerbelt_1000m_schoolid_324) + 
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_328)   + 
+      as.factor(innerbelt_1000m_schoolid_334)    
+   
+ 
+```
+ 
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 336
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_336 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_336)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_336 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_336)
+```
+
+
+
+```{r}
+sem_model3_336<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_336)
+```
+
+```{r}
+sem_model4_336<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_336)
+```
+
+```{r}
+#spatial lag
+sem_model5_336<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_336)
+```
+
+```{r}
+
+sem_model6_336<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_336)
+```
+
+```{r}
+#sdm
+sem_model7_336<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_336)
+```
+
+```{r}
+#sdm
+sem_model8_336<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_336)
+
+```
+ 
+ 
+
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_336==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+
+
+# 337
+```{r}
+schoolid = 337
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+       as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_337) * as.factor(threeyears_337) + 
+      as.factor(innerbelt_1000m_schoolid_337) + as.factor(threeyears_337) 
+
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_337) * as.factor(threeyears_337) + 
+      as.factor(innerbelt_1000m_schoolid_337) + as.factor(threeyears_337) 
+
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_337) * as.factor(threeyears_337) + 
+      as.factor(innerbelt_1000m_schoolid_337) + as.factor(threeyears_337)+ 
+      as.factor(innerbelt_1000m_schoolid_340)  +   
+      as.factor(innerbelt_1000m_schoolid_321) +   
+      as.factor(innerbelt_1000m_schoolid_324)
+ 
+```
+
+ 
+
+
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 337
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_337 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_337)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_337 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_337)
+```
+
+
+
+```{r}
+sem_model3_337<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_337)
+```
+
+```{r}
+sem_model4_337<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_337)
+```
+
+```{r}
+#spatial lag
+sem_model5_337<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_337)
+```
+
+```{r}
+
+sem_model6_337<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_337)
+```
+
+```{r}
+#sdm
+sem_model7_337<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_337)
+```
+
+```{r}
+#sdm
+sem_model8_337<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_337)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_337==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2019)
+```
+
+# 338
+```{r}
+schoolid = 338
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+
+```{r}
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_338) * as.factor(threeyears_338) + 
+      as.factor(innerbelt_1000m_schoolid_338) + as.factor(threeyears_338)
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+       as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_338) * as.factor(threeyears_338) + 
+      as.factor(innerbelt_1000m_schoolid_338) + as.factor(threeyears_338) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_338) * as.factor(threeyears_338) + 
+      as.factor(innerbelt_1000m_schoolid_338) + as.factor(threeyears_338)+
+          as.factor(innerbelt_1000m_schoolid_334) +
+          as.factor(innerbelt_1000m_schoolid_339) 
+
+```
+
+
+
+
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 338
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_338 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_338)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_338 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_338)
+```
+
+
+
+```{r}
+sem_model3_338<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_338)
+```
+
+```{r}
+sem_model4_338<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_338)
+```
+
+```{r}
+#spatial lag
+sem_model5_338<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_338)
+```
+
+```{r}
+
+sem_model6_338<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_338)
+```
+
+```{r}
+#sdm
+sem_model7_338<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_338)
+```
+
+```{r}
+#sdm
+sem_model8_338<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_338)
+
+```
+
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_338==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2019)
+```
+
+# 339
+
+```{r}
+schoolid = 339
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+```{r}
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_339) * as.factor(threeyears_339) + 
+      as.factor(innerbelt_1000m_schoolid_339) + as.factor(threeyears_339) 
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_339) * as.factor(threeyears_339) + 
+      as.factor(innerbelt_1000m_schoolid_339) + as.factor(threeyears_339) 
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_339) * as.factor(threeyears_339) + 
+      as.factor(innerbelt_1000m_schoolid_339) + as.factor(threeyears_320)+ 
+     
+      as.factor(innerbelt_1000m_schoolid_340)     +   
+      as.factor(innerbelt_1000m_schoolid_327) +   
+      as.factor(innerbelt_1000m_schoolid_328)
+
+```
+
+
+
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 339
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_339 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_339)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_339<- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_339)
+```
+
+
+
+```{r}
+sem_model3_339<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_339)
+```
+
+```{r}
+sem_model4_339<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_339)
+```
+
+```{r}
+#spatial lag
+sem_model5_339<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_339)
+```
+
+```{r}
+
+sem_model6_339<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_339)
+```
+
+```{r}
+#sdm
+sem_model7_339<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_339)
+```
+
+```{r}
+#sdm
+sem_model8_339<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_339)
+
+```
+
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_339==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2019)
+```
+
+# 340
+
+
+
+```{r}
+schoolid = 340
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+
+
+
+```{r}
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_340) * as.factor(threeyears_340) + 
+      as.factor(innerbelt_1000m_schoolid_340) + as.factor(threeyears_340) 
+
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+       as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_340) * as.factor(threeyears_340) + 
+      as.factor(innerbelt_1000m_schoolid_340) + as.factor(threeyears_340) 
+
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_340) * as.factor(threeyears_340) + 
+      as.factor(innerbelt_1000m_schoolid_340) + as.factor(threeyears_340) 
+
+       
+
+```
+
+
+ 
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 340
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_340 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_340)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_340 <- errorsarlm(complexformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_340)
+```
+
+
+
+```{r}
+sem_model3_340<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_340)
+```
+
+```{r}
+sem_model4_340<-GMerrorsar(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_340)
+```
+
+```{r}
+#spatial lag
+sem_model5_340<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_340)
+```
+
+```{r}
+
+sem_model6_340<-lagsarlm(complexformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_340)
+```
+
+```{r}
+#sdm
+sem_model7_340<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_340)
+```
+
+```{r}
+#sdm
+sem_model8_340<-lagsarlm(complexformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_340)
+
+```
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_340==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 1999)
+```
+# 343
+
+```{r}
+schoolid = 343
+df_sub <- subset(df,
+            (df[[paste0("outerbelt_1000m_schoolid_", schoolid)]] == 1 | 
+             df[[paste0("innerbelt_1000m_schoolid_", schoolid)]] == 1)) 
+df_sub2<- subset(df_sub, df_sub[[paste0("threeyears_", schoolid)]] == 1 |df_sub[[paste0("threeyears_", schoolid)]] == 0 )
+
+df_sub2 <- df_sub2[!is.na(df_sub2$CL_Meshblock), ]
+```
+
+
+
+###  create spatial weights using meshblok categorical variable 
+
+-Note the obs of housing sales are from two buffers
+```{r}
+# Create a binary weight matrix based on matching categories
+weight_matrix <- outer(df_sub2$CL_Meshblock, df_sub2$CL_Meshblock, FUN = function(x, y) ifelse(x == y, 1, 0))
+# row standardized
+row_sums<- rowSums(weight_matrix)
+row_standardized_wmatrix<- weight_matrix / (row_sums)
+# check if any na in the weight_matrix
+any(is.na(row_standardized_wmatrix))
+# covert the row-standardized weight matrix to a list format
+nb2 <- mat2listw(row_standardized_wmatrix, style = "B")
+```
+```{r}
+nb2
+```
+```{r}
+names(df_sub2)
+```
+
+
+```{r}
+simpleformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_343) * as.factor(threeyears_343) + 
+      as.factor(innerbelt_1000m_schoolid_343) + as.factor(threeyears_343) 
+spatial_model <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_343) * as.factor(threeyears_343) + 
+      as.factor(innerbelt_1000m_schoolid_343) + as.factor(threeyears_343) 
+   
+
+
+```
+
+   
+complexformula <- lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) +as.factor(CL_Bathrooms) + 
+      as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + 
+      as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description)  + 
+      as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + 
+      as.factor(innerbelt_1000m_schoolid_343) * as.factor(threeyears_343) + 
+      as.factor(innerbelt_1000m_schoolid_343) + as.factor(threeyears_343)+ as.factor(inzone_schoolid_316)
+      + as.factor(inzone_schoolid_319)  +  as.factor(inzone_schoolid_320) +
+      as.factor(inzone_schoolid_321)  + 
+      as.factor(inzone_schoolid_324)  +  as.factor(inzone_schoolid_326) 
+      as.factor(inzone_schoolid_327)   + 
+      as.factor(inzone_schoolid_328)  +  as.factor(inzone_schoolid_331) +
+      as.factor(inzone_schoolid_334)   + 
+      as.factor(inzone_schoolid_336) + as.factor(inzone_schoolid_337)+ as.factor(inzone_schoolid_338)+ as.factor(inzone_schoolid_339)+ as.factor(inzone_schoolid_340) 
+ 
+ 
+ 
+### fitting spatial models foor SchoolID 343
+```{r}
+# fit spatial error model with complicate formula
+sem_model1_343 <- errorsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model1_343)
+```
+
+```{r}
+# fit a spatial error model 
+sem_model2_343 <- errorsarlm(simpleformula , data = df_sub2, listw = nb2)
+
+summary(sem_model2_343)
+```
+
+
+
+```{r}
+sem_model3_343<-GMerrorsar(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model3_343)
+```
+
+```{r}
+sem_model4_343<-GMerrorsar(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model4_343)
+```
+
+```{r}
+#spatial lag
+sem_model5_343<-lagsarlm(spatial_model, data = df_sub2, listw = nb2)
+
+summary(sem_model5_343)
+```
+
+```{r}
+
+sem_model6_343<-lagsarlm(simpleformula, data = df_sub2, listw = nb2)
+
+summary(sem_model6_343)
+```
+
+```{r}
+#sdm
+sem_model7_343<-lagsarlm(spatial_model, data = df_sub2, listw = nb2, type="mixed")
+
+summary(sem_model7_343)
+```
+
+```{r}
+#sdm
+sem_model8_343<-lagsarlm(simpleformula, data = df_sub2, listw = nb2, type="mixed")
+summary(sem_model8_343)
+
+```   
+   
+```{r}
+install.packages("stargazer")
+library(stargazer)
+```
+```{r}
+stargazer(sem_model1_343, sem_model2_343)
+```
+
+
+```{r}
+plot(resid(simplemodel))
+
+plot(resid(model))
+```
+
+```{r}
+mean_lp=aggregate(df_sub2$lp, list(df_sub2$year, df_sub2$innerbelt_1000m_schoolid_343==1), mean)
+names(mean_lp)=c("Year", "Treatment", "LogHousePrices")
+
+library(ggplot2)
+ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment), xlab="Year", ylab="LogHousePrices")+
+  geom_line()+
+  geom_point() +
+  geom_vline(xintercept = 2011)
+```
+
+
+
+
+
+
+
+```{r}
+
+# estimate the simple model 
+    
+ # create simple formula
+  simple_formula <- as.formula(paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ")"
+  ))
+  
+  # Remove NA values from the dataset  
+  subset_data <- na.omit(subset_data)
+  
+  # Fit the model using fixest
+  model1 <- feols(simple_formula, data = subset_data)
+  
+  # Extract the regression table using etable()
+  model_table <- etable(model1)
+  
+  # Save the table to a CSV file with a unique filename pattern
+  output_filename <- paste0("simplemodel_school_", school_id, "_", group_name, ".csv")
+  write.csv(model_table, file = output_filename, row.names = FALSE)
+   
+
+```
+
+
+
+
+
+
+
+
+
