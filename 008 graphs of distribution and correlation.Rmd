@@ -1,0 +1,585 @@
+---
+title: "chap3 graph of descriptive stats"
+author: "Peng Sun"
+date: "2025-02-23"
+output: html_document
+---
+# load df dataset and packages
+
+
+```{r}
+# Select only the four variables of interest
+
+df_selected <- df[, c("lp", "CL_Building_Floor_Area", "CL_Land_Area")] %>%
+  na.omit()  %>%
+  mutate(across(everything(), as.numeric)) %>%
+  rename(
+    LogHousePrices = lp,
+    FloorArea = CL_Building_Floor_Area,
+    LandArea = CL_Land_Area,
+
+  ) 
+# Calculate the correlation matrix
+cor_matrix <- cor(df_selected)
+
+# Load required library for visualization
+library(ggplot2)
+library(reshape2)
+
+# Convert correlation matrix to long format for ggplot
+cor_melted <- melt(cor_matrix)
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation Heatmap of Housing Variables",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+print(dim(df_dummy))
+
+# Fix by using the same data frame throughout
+df_selected <- df[,  c("lp",  "CL_Bedrooms")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    BedroomNumber = `CL_Bedrooms`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+ 
+    BedroomNumber = as.factor(BedroomNumber)
+  )
+
+# Create dummy variables using the same df_selected
+df_dummy <- model.matrix(~ BedroomNumber - 1, data = df_selected)
+colnames(df_dummy) <- gsub("BedroomNumber", "Bedroom_", colnames(df_dummy))
+df_dummy <- as.data.frame(df_dummy)
+
+# Now combine using the same row indices
+df_final <- data.frame(
+  LogHousePrices = df_selected$LogHousePrices,
+
+  df_dummy
+)
+
+# Calculate correlation matrix
+cor_matrix <- cor(df_final)
+
+# Keep only correlations with LogHousePrices
+cor_selected <- cor_matrix["LogHousePrices", ]
+
+# Create data frame for plotting
+cor_melted <- data.frame(
+  Variable = names(cor_selected),
+  Correlation = cor_selected
+) %>%
+  filter(Variable != "LogHousePrices")
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Variable, y = "LogHousePrices", fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "yellow", mid = "white", high = "red",
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation between Log House Prices and Bedroom Number",
+       x = "Variables",
+       y = "",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+dim(df)
+```
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+print(dim(df_dummy))
+
+# Fix by using the same data frame throughout
+df_selected <- df[, c("lp", "CL_LUD_Age")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    BuildingAge = `CL_LUD_Age`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    BuildingAge = as.factor(BuildingAge)  # Changed from CL_LUD_Age to BuildingAge
+  )
+
+# Create dummy variables using the same df_selected
+df_dummy <- model.matrix(~ BuildingAge - 1, data = df_selected)
+colnames(df_dummy) <- gsub("BuildingAge", "BuildingAge_", colnames(df_dummy))
+df_dummy <- as.data.frame(df_dummy)
+
+# Now combine using the same row indices
+df_final <- data.frame(
+  LogHousePrices = df_selected$LogHousePrices,
+  df_dummy
+)
+
+# Calculate correlation matrix
+cor_matrix <- cor(df_final)
+
+# Keep only correlations with LogHousePrices
+cor_selected <- cor_matrix["LogHousePrices", ]
+
+# Create data frame for plotting
+cor_melted <- data.frame(
+  Variable = names(cor_selected),
+  Correlation = cor_selected
+) %>%
+  filter(Variable != "LogHousePrices")
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Variable, y = "LogHousePrices", fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "yellow", mid = "white", high = "red",
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation between Log House Prices and BuildingAge",
+       x = "Variables",
+       y = "",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+print("Initial dimensions:")
+print(dim(df_selected))
+print(dim(df_dummy))
+
+
+# Fix by using the same data frame throughout
+df_selected <- df[, c("lp", "CL_MAS_Contour")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    Contour = `CL_MAS_Contour`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    Contour = as.factor(Contour)
+  )
+
+# Create dummy variables using the same df_selected
+df_dummy <- model.matrix(~ Contour - 1, data = df_selected)
+colnames(df_dummy) <- gsub("Contour", "Contour_", colnames(df_dummy))
+df_dummy <- as.data.frame(df_dummy)
+
+# Now combine using the same row indices
+df_final <- data.frame(
+  LogHousePrices = df_selected$LogHousePrices,
+  df_dummy
+)
+
+# Calculate correlation matrix
+cor_matrix <- cor(df_final)
+
+# Keep only correlations with LogHousePrices
+cor_selected <- cor_matrix["LogHousePrices", ]
+
+# Create data frame for plotting
+cor_melted <- data.frame(
+  Variable = names(cor_selected),
+  Correlation = cor_selected
+) %>%
+  filter(Variable != "LogHousePrices")
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Variable, y = "LogHousePrices", fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "yellow", mid = "white", high = "red",
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation between Log House Prices and Contour",
+       x = "Variables",
+       y = "",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+print("Initial dimensions:")
+print(dim(df_selected))
+print(dim(df_dummy))
+
+# Fix by using the same data frame throughout
+df_selected <- df[, c("lp", "CL_MAS_Deck_Indicator")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    Deck = `CL_MAS_Deck_Indicator`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    Deck = as.factor(Deck)
+  )
+
+# Create dummy variables using the same df_selected
+df_dummy <- model.matrix(~ Deck - 1, data = df_selected)
+colnames(df_dummy) <- gsub("Deck", "Deck_", colnames(df_dummy))
+df_dummy <- as.data.frame(df_dummy)
+
+# Now combine using the same row indices
+df_final <- data.frame(
+  LogHousePrices = df_selected$LogHousePrices,
+  df_dummy
+)
+
+# Calculate correlation matrix
+cor_matrix <- cor(df_final)
+
+# Keep only correlations with LogHousePrices
+cor_selected <- cor_matrix["LogHousePrices", ]
+
+# Create data frame for plotting
+cor_melted <- data.frame(
+  Variable = names(cor_selected),
+  Correlation = cor_selected
+) %>%
+  filter(Variable != "LogHousePrices")
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Variable, y = "LogHousePrices", fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "yellow", mid = "white", high = "red",
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation between Log House Prices and Deck",
+       x = "Variables",
+       y = "",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+print("Initial dimensions:")
+print(dim(df_selected))
+print(dim(df_dummy))
+
+# Fix by using the same data frame throughout
+df_selected <- df[, c("lp", "CL_MAS_No_Main_Roof_Garages")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    RoofGarageNumber = `CL_MAS_No_Main_Roof_Garages`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    RoofGarageNumber = as.factor(RoofGarageNumber)
+  )
+
+# Create dummy variables using the same df_selected
+df_dummy <- model.matrix(~ RoofGarageNumber - 1, data = df_selected)
+colnames(df_dummy) <- gsub("RoofGarageNumber", "RoofGarageNumber_", colnames(df_dummy))
+df_dummy <- as.data.frame(df_dummy)
+
+# Now combine using the same row indices
+df_final <- data.frame(
+  LogHousePrices = df_selected$LogHousePrices,
+  df_dummy
+)
+
+# Calculate correlation matrix
+cor_matrix <- cor(df_final)
+
+# Keep only correlations with LogHousePrices
+cor_selected <- cor_matrix["LogHousePrices", ]
+
+# Create data frame for plotting
+cor_melted <- data.frame(
+  Variable = names(cor_selected),
+  Correlation = cor_selected
+) %>%
+  filter(Variable != "LogHousePrices")
+
+# Create the heatmap
+ggplot(cor_melted, aes(x = Variable, y = "LogHousePrices", fill = Correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "yellow", mid = "white", high = "red",
+                      midpoint = 0, limits = c(-1,1)) +
+  theme_minimal() +
+  labs(title = "Correlation between Log House Prices and RoofGarageNumber",
+       x = "Variables",
+       y = "",
+       fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset
+df_selected <- df[, c("lp", "CL_Bedrooms")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    BedroomNumber = `CL_Bedrooms`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    BedroomNumber = as.factor(BedroomNumber)
+  )
+
+# Create violin plot with boxplot overlay
+ggplot(df_selected, aes(x = BedroomNumber, y = LogHousePrices)) +
+  geom_violin(fill = "lightblue", alpha = 0.5) +
+  geom_boxplot(width = 0.2, fill = "white", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of Log House Prices by Number of Bedrooms",
+       x = "Number of Bedrooms",
+       y = "Log House Prices") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    axis.text.x = element_text(angle = 0)
+  ) +
+  scale_y_continuous(labels = scales::comma)
+
+```
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset
+df_selected <- df[, c("lp", "CL_Bedrooms")] %>%
+  na.omit() %>%
+  rename(
+    LogHousePrices = lp,
+    BedroomNumber = `CL_Bedrooms`
+  ) %>%
+  mutate(
+    LogHousePrices = as.numeric(LogHousePrices),
+    BedroomNumber = as.factor(BedroomNumber)
+  )
+
+# Create box plot
+ggplot(df_selected, aes(x = BedroomNumber, y = LogHousePrices)) +
+  geom_boxplot(fill = "lightblue", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of Log House Prices by Number of Bedrooms",
+       x = "Number of Bedrooms",
+       y = "Log House Prices") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    axis.text.x = element_text(angle = 0)
+  ) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_LUD_Age")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   BuildingAge = `CL_LUD_Age`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   BuildingAge = as.factor(BuildingAge)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = BuildingAge, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Building Age",
+      x = "Building Age Category",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled x-axis labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_MAS_Contour")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   Contour = `CL_MAS_Contour`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   Contour = as.factor(Contour)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = Contour, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Land Contour",
+      x = "Land Contour Type",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_Roof_Cond")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   RoofCondition = `CL_Roof_Cond`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   RoofCondition = as.factor(RoofCondition)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = RoofCondition, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Roof Condition",
+      x = "Roof Condition",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+```{r}
+
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_Bldg_Const")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   BuildingConstruction = `CL_Bldg_Const`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   BuildingConstruction = as.factor(BuildingConstruction)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = BuildingConstruction, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Building Construction Type",
+      x = "Building Construction Type",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_MAS_Deck_Indicator")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   Deck = `CL_MAS_Deck_Indicator`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   Deck = as.factor(Deck)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = Deck, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Building Construction Type",
+      x = "Deck",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+```{r}
+# First check the data
+print("Initial dimensions:")
+print(dim(df_selected))
+ 
+# Create the basic dataset  
+df_selected <- df[, c("lp", "CL_MAS_No_Main_Roof_Garages")] %>%
+ na.omit() %>%
+ rename(
+   LogHousePrices = lp,
+   NumberofRoofGarage = `CL_MAS_No_Main_Roof_Garages`
+ ) %>%
+ mutate(
+   LogHousePrices = as.numeric(LogHousePrices),
+   NumberofRoofGarage = as.factor(NumberofRoofGarage)
+ )
+
+# Create box plot
+ggplot(df_selected, aes(x = NumberofRoofGarage, y = LogHousePrices)) +
+ geom_boxplot(fill = "lightblue", alpha = 0.7) +
+ theme_minimal() +
+ labs(title = "Distribution of Log House Prices by Number of Roof Garage",
+      x = "Roof Condition",
+      y = "Log House Prices") +
+ theme(
+   plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+   axis.title = element_text(size = 12),
+   axis.text = element_text(size = 10),
+   axis.text.x = element_text(angle = 45, hjust = 1)  # Angled labels for better readability
+ ) +
+ scale_y_continuous(labels = scales::comma)
+```
+```{r}
+
+```
+
