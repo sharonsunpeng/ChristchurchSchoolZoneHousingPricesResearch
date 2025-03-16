@@ -1,0 +1,358 @@
+---
+title: "models_chapter3"
+author: "Peng Sun"
+date: "2025-02-18"
+output: html_document
+---
+
+
+```{r}
+
+# Initialize an empty list to store graphs
+graph_list <- list()
+# Define lists to hold the formulas and models
+formulas_list <- list()
+
+model_1_list <-list()
+modelsummary_list<-list()
+for (school_id in schoolid_list) {
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    
+    
+    #Save the results as CSV with a unique filename for each group
+    group_name <- gsub("schoolid_", "", outzone_col)  
+ 
+       # Create simple formula, dynamically replacing inzone_col
+    simple_formula <- as.formula(paste0(
+      "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+      "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+      "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+      "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+      "as.factor(", inzone_col, ") * as.factor(", before_after_col, ") + ",
+      "as.factor(", inzone_col, ") + as.factor(", before_after_col, ")+",
+      "as.factor(", inzone_col, ")*as.factor(year)|as.factor(", inzone_col, ") + as.factor(year)"
+    ))
+
+    
+    # create complex formula
+    full_formula <- as.formula(paste0(
+      "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+      "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+      "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+      "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation)+",
+      "as.factor(CL_MAS_Landscaping_Quality)+as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type)+", 
+      "as.factor(", inzone_col, ") * as.factor(", before_after_col, ") + ",
+      "as.factor(", inzone_col, ") + as.factor(", before_after_col, ")|as.factor(", inzone_col, ") + as.factor(year)"
+    ))
+    
+    
+    # create formula with controls of other schools
+    remaining_schools <- schoolid_list[schoolid_list != school_id]
+      # Create the formula component for remaining school IDs
+    control_component <- paste0("as.factor(", remaining_schools, ")", collapse = " + ")
+      # Create the full formula using paste0()
+  
+    control_string<- paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+    "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+    "CL_QPID + CL_Sale_ID + CL_Suburb + CL_Town + CL_RegionName + CL_TAName + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+    control_component
+    )
+    control_formula <- as.formula(control_string)
+    
+    # Store formulas in the list with {school_id} suffix
+    formulas_list[[paste0("simple_", school_id)]] <- simple_formula
+    formulas_list[[paste0("full_", school_id)]] <- full_formula
+    formulas_list[[paste0("control_", school_id)]] <- control_formula
+    
+    # Run regression: Example formula (replace with relevant model)
+    model1 <- feols(simple_formula, data = subset_data)
+    
+    
+    #model_full<-feols(full_formula,data=subset_data)
+    # Get tidy summary of regression
+    model1_summary <- etable(model1)
+    modelsummary_list[[paste0("simple_", school_id)]] <- model1_summary
+    #model_fullsummary <- summary(model1)
+    # Save regression results as CSV
+   # write.csv(model1_summary, paste0("model1_school_", school_id, "_", group_name,".csv"), row.names = FALSE)
+    # Store models in the list with {school_id} suffix
+    #model_1_list[[paste0("Feb2025simple_", "subset_school_",school_id,"_", group_name)]] <- model_fullsummary
+    #write.csv(model_fullsummary, paste0("Feb2025model1_school_fullcontrol", school_id, "_", group_name,".csv"), row.names = FALSE)
+    
+    # After your regression in the loop
+# Extract the coefficient plot for interaction terms
+  library(coefplot)
+  
+  # Create pattern to match interaction terms
+  interaction_pattern <- paste0("as\\.factor\\(", inzone_col, "\\).*:as\\.factor\\(year\\)")
+  
+  # Find the interaction terms in your model
+  interaction_terms <- names(coef(model1))[grep(interaction_pattern, names(coef(model1)))]
+  
+  # Create the coefficient plot for these specific terms
+  coef_plot <- coefplot(
+    model1,
+    keep = interaction_terms,
+    ylim = c(-0.4, 0.4),
+    title = paste0("Interaction Effects: ", inzone_col, " × Year"),
+    xlab = "",
+    ylab = "Coefficient Estimate"
+  ) + 
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+      plot.title = element_text(face = "bold", size = 16)
+    )
+  
+  # Save the plot
+  ggsave(
+    filename = paste0("coef_plot_school_", school_id, "_", group_name, "_", inzone_col, "_by_year.png"),
+    plot = coef_plot,
+    width = 10,
+    height = 8,
+    dpi = 300
+  )
+  # add the plot to graph_list
+  graph_list <- append(graph_list, list(p))  
+  }
+}
+```
+
+```{r}
+class(model1_summary)
+```
+
+```{r}
+dim(graph_list)
+```
+
+```{r}
+
+
+# Initialize an empty list to store graphs
+graph_list <- list()
+
+# Define lists to hold the formulas and models
+formulas_list <- list()
+model_1_list <-list()
+for (school_id in schoolid_list) {
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    
+    
+    #Save the results as CSV with a unique filename for each group
+    group_name <- gsub("schoolid_", "", outzone_col)  
+ 
+       # Create simple formula, dynamically replacing inzone_col
+    simple_formula <- as.formula(paste0(
+      "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+      "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+      "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+      "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + ",
+      "as.factor(", inzone_col, ") * as.factor(", before_after_col, ") + ",
+      "as.factor(", inzone_col, ") + as.factor(", before_after_col, ")+as.factor(", inzone_col, ")*as.factor(year)|as.factor(", inzone_col, ") + as.factor(year)"
+    ))
+
+    
+    # create complex formula
+    full_formula <- as.formula(paste0(
+      "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+      "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+      "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+      "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation)+",
+      "as.factor(CL_MAS_Landscaping_Quality)+as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type)+", 
+      "as.factor(", inzone_col, ") * as.factor(", before_after_col, ") + ",
+      "as.factor(", inzone_col, ") + as.factor(", before_after_col, ")|as.factor(", inzone_col, ") + as.factor(year)"
+    ))
+    
+    
+    # create formula with controls of other schools
+    remaining_schools <- schoolid_list[schoolid_list != school_id]
+      # Create the formula component for remaining school IDs
+    control_component <- paste0("as.factor(", remaining_schools, ")", collapse = " + ")
+      # Create the full formula using paste0()
+  
+    control_string<- paste0(
+    "lp ~ CL_Building_Floor_Area + CL_Land_Area + as.factor(CL_Bedrooms) + as.factor(CL_Bathrooms) + ",
+    "as.factor(CL_MAS_Free_Standing_Garages) + as.factor(CL_LUD_Age) + as.factor(CL_MAS_Deck_Indicator) + ",
+    "as.factor(CL_MAS_No_Main_Roof_Garages) + as.factor(CL_LUD_Land_Use_Description) + ",
+    "as.factor(CL_MAS_Contour) + as.factor(year) + as.factor(quarter) + as.factor(CL_MAS_Modernisation) + ",
+    "as.factor(CL_MAS_Landscaping_Quality) + as.factor(CL_MAS_Class_Surrounding_Improvmnt_Type) + ",
+    "CL_QPID + CL_Sale_ID + CL_Suburb + CL_Town + CL_RegionName + CL_TAName + ",
+    "as.factor(inzone_schoolid_", school_id, ") * as.factor(threeyears_", school_id, ") + ",
+    "as.factor(inzone_schoolid_", school_id, ") + as.factor(threeyears_", school_id, ") + ",
+    control_component
+    )
+    control_formula <- as.formula(control_string)
+    
+    # Store formulas in the list with {school_id} suffix
+    formulas_list[[paste0("simple_", school_id)]] <- simple_formula
+    formulas_list[[paste0("full_", school_id)]] <- full_formula
+    formulas_list[[paste0("control_", school_id)]] <- control_formula
+    
+    # Run regression: Example formula (replace with relevant model)
+    model1 <- feols(simple_formula, data = subset_data)
+    
+        # Get the model coefficients 
+    coefs <- coef(model1)
+    ci <- confint(model1)
+    
+    # Filter for just the interaction terms we want
+    interaction_pattern <- paste0("^as\\.factor\\(", inzone_col, "\\).*:as\\.factor\\(year\\)")
+    interaction_coefs <- coefs[grep(interaction_pattern, names(coefs))]
+    interaction_ci <- ci[grep(interaction_pattern, rownames(ci)),]
+    
+    # Create a data frame for plotting
+    plot_data <- data.frame(
+      term = names(interaction_coefs),
+      estimate = interaction_coefs,
+      conf.low = interaction_ci[,1],
+      conf.high = interaction_ci[,2]
+    )
+    
+    # Clean up term names for better display
+    plot_data$term <- gsub(paste0("as\\.factor\\(", inzone_col, "\\)"), "", plot_data$term)
+    plot_data$term <- gsub("as\\.factor\\(year\\)", "", plot_data$term)
+    plot_data$term <- gsub(":", "×", plot_data$term)
+    
+    # Create the coefficient plot using ggplot2
+    library(ggplot2)
+    
+    coef_plot <- ggplot(plot_data, aes(x = term, y = estimate)) +
+      geom_point(size = 3) +
+      geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+      coord_flip() +
+      labs(
+        title = paste0("Interaction Effects: ", inzone_col, " × Year"),
+        subtitle = paste0("School ID: ", school_id, " - ", group_name),
+        x = "",
+        y = "Coefficient Estimate"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(face = "bold"),
+        axis.text = element_text(size = 10)
+      )
+    
+    # Save the plot
+    ggsave(
+      filename = paste0("coef_plot_school_", school_id, "_", group_name, "_", inzone_col,outzone_col, "_by_year.png"),
+      plot = coef_plot,
+      width = 10,
+      height = 8,
+      dpi = 300
+    )
+     
+    
+    # add the plot to graph_list
+    graph_list <- append(graph_list, list(coef_plot))
+    
+    # Code for regressions with parallel trends test
+    #model_full<-feols(full_formula,data=subset_data)
+    # Get tidy summary of regression
+    #model1_summary <- etable(model1)
+    #model_fullsummary <- summary(model1)
+    # Save regression results as CSV
+    #write.csv(model1_summary, paste0("model1_school_", school_id, "_", group_name,"_paralleltrends.csv"), row.names = FALSE)
+    # Store models in the list with {school_id} suffix
+    #model_1_list[[paste0("Feb2025simple_", "subset_school_",school_id,"_", group_name)]] <- model_fullsummary
+    #write.csv(model_fullsummary, paste0("Feb2025model1_school_fullcontrol", school_id, "_", group_name,".csv"), row.names = FALSE)
+  }
+}
+```
+
+```{r}
+#install.packages(c("ggplot2", "gridExtra"))
+#install.packages("gridExtra")
+```
+```{r}
+library(gridExtra)
+```
+
+
+```{r}
+
+# Function to arrange graphs on a page
+arrange_page <- function(graphs, page_num) {
+  start_index <- (page_num - 1) * 8 + 1
+  end_index <- page_num * 8
+  do.call(grid.arrange, c(graphs[start_index:end_index], ncol = 2, nrow = 4))
+}
+
+# Calculate page size based on graph dimensions
+graph_width <- 10  # inches
+graph_height <- 6  # inches
+page_width <- graph_width * 2 + 1  # 2 graphs wide, with 1 inch margin
+page_height <- graph_height * 4 + 2  # 4 graphs tall, with 2 inch margin
+
+# Set up the PDF device
+pdf("multi_page_large_graphs_large.pdf", width = page_width, height = page_height)
+
+# Create eight pages of graphs
+for (page in 1:8) {
+  arrange_page(graph_list, page)
+}
+
+# Close the PDF device
+dev.off()
+```
