@@ -1,0 +1,328 @@
+---
+title: "02_analysis_of_multiple_subsamples"
+author: "Peng Sun"
+date: "2024-09-17"
+output: html_document
+---
+```{r}
+getwd()
+```
+## Load Packages
+```{r}
+# Load necessary libraries
+library(readr)
+library(tidyverse)
+library(tidymodels)
+library(broom)
+library(ggplot2)
+```
+
+## Load Data 
+```{r}
+df<-read.csv("christchurch_cleaned.csv")
+```
+```{r}
+columns_to_keep <- c(
+  "CL_QPID", "CL_Sale_ID", "CL_Suburb", "CL_Town", "CL_RegionName", "CL_TAName", 
+  "CL_Meshblock", "CL_SAU", "CL_Sale_Tenure", "CL_Sale_Price_Value_Relationship", 
+  "CL_Sale_Date", "CL_Building_Floor_Area", "CL_Land_Area", "CL_Bldg_Const", 
+  "CL_Bldg_Cond", "CL_Roof_Const", "CL_Roof_Cond", "CL_Category", "CL_LUD_Age", 
+  "CL_LUD_Land_Use_Description", "CL_MAS_Class_Surrounding_Improvmnt_Type", 
+  "CL_MAS_Contour", "CL_MAS_View", "CL_MAS_View_Scope", "CL_MAS_Modernisation", 
+  "CL_MAS_House_Type_Description", "CL_MAS_Deck_Indicator", "CL_MAS_Driveway_Indicator", 
+  "CL_MAS_No_Main_Roof_Garages", "CL_MAS_Free_Standing_Garages", "CL_MAS_Landscaping_Quality", 
+  "CL_MAS_Lot_Position", "CL_Val_Ref", "CL_Latitude", "CL_Longitude", "CL_Bedrooms", 
+  "CL_Bathrooms", "lp", "year", "quarter", "inzone_schoolid_316", "belt_schoolid_316", 
+  "before_SchoolID_316", "after_SchoolID_316", "inzone_schoolid_319", "belt_schoolid_319", 
+  "before_SchoolID_319", "after_SchoolID_319", "inzone_schoolid_320", "belt_schoolid_320", 
+  "before_SchoolID_320", "after_SchoolID_320", "inzone_schoolid_321", "belt_schoolid_321", 
+  "before_SchoolID_321", "after_SchoolID_321", "inzone_schoolid_324", "belt_schoolid_324", 
+  "before_SchoolID_324", "after_SchoolID_324", "inzone_schoolid_326", "belt_schoolid_326", 
+  "before_SchoolID_326", "after_SchoolID_326", "inzone_schoolid_327", "belt_schoolid_327", 
+  "before_SchoolID_327", "after_SchoolID_327", "inzone_schoolid_328", "belt_schoolid_328", 
+  "before_SchoolID_328", "after_SchoolID_328", "inzone_schoolid_331", "belt_schoolid_331", 
+  "before_SchoolID_331", "after_SchoolID_331", "inzone_schoolid_334", "belt_schoolid_334", 
+  "before_SchoolID_334", "after_SchoolID_334", "inzone_schoolid_336", "belt_schoolid_336", 
+  "before_SchoolID_336", "after_SchoolID_336", "inzone_schoolid_337", "belt_schoolid_337", 
+  "before_SchoolID_337", "after_SchoolID_337", "inzone_schoolid_338", "belt_schoolid_338", 
+  "before_SchoolID_338", "after_SchoolID_338", "inzone_schoolid_339", "belt_schoolid_339", 
+  "before_SchoolID_339", "after_SchoolID_339", "inzone_schoolid_340", "belt_schoolid_340", 
+  "before_SchoolID_340", "after_SchoolID_340", "inzone_schoolid_343", "belt_schoolid_343", 
+  "before_SchoolID_343", "after_SchoolID_343", "outerbelt_1000m_schoolid_316", 
+  "outerbelt_1000m_schoolid_319", "outerbelt_1000m_schoolid_320", "outerbelt_1000m_schoolid_321", 
+  "outerbelt_1000m_schoolid_324", "outerbelt_1000m_schoolid_326", "outerbelt_1000m_schoolid_327", 
+  "outerbelt_1000m_schoolid_328", "outerbelt_1000m_schoolid_331", "outerbelt_1000m_schoolid_334", 
+  "outerbelt_1000m_schoolid_336", "outerbelt_1000m_schoolid_337", "outerbelt_1000m_schoolid_338", 
+  "outerbelt_1000m_schoolid_339", "outerbelt_1000m_schoolid_340", "outerbelt_1000m_schoolid_343", 
+  "innerbelt_1000m_schoolid_316", "innerbelt_1000m_schoolid_319", "innerbelt_1000m_schoolid_320", 
+  "innerbelt_1000m_schoolid_321", "innerbelt_1000m_schoolid_324", "innerbelt_1000m_schoolid_326", 
+  "innerbelt_1000m_schoolid_327", "innerbelt_1000m_schoolid_328", "innerbelt_1000m_schoolid_331", 
+  "innerbelt_1000m_schoolid_334", "innerbelt_1000m_schoolid_336", "innerbelt_1000m_schoolid_337", 
+  "innerbelt_1000m_schoolid_338", "innerbelt_1000m_schoolid_339", "innerbelt_1000m_schoolid_340", 
+  "innerbelt_1000m_schoolid_343", "innerbelt_500m_schoolid_316", "innerbelt_500m_schoolid_319", 
+  "innerbelt_500m_schoolid_320", "innerbelt_500m_schoolid_321", "innerbelt_500m_schoolid_324", 
+  "innerbelt_500m_schoolid_326", "innerbelt_500m_schoolid_327", "innerbelt_500m_schoolid_328", 
+  "innerbelt_500m_schoolid_331", "innerbelt_500m_schoolid_334", "innerbelt_500m_schoolid_336", 
+  "innerbelt_500m_schoolid_337", "innerbelt_500m_schoolid_338", "innerbelt_500m_schoolid_339", 
+  "innerbelt_500m_schoolid_340", "innerbelt_500m_schoolid_343", "outerbelt_500m_schoolid_316", 
+  "outerbelt_500m_schoolid_319", "outerbelt_500m_schoolid_320", "outerbelt_500m_schoolid_321", 
+  "outerbelt_500m_schoolid_324", "outerbelt_500m_schoolid_326", "outerbelt_500m_schoolid_327", 
+  "outerbelt_500m_schoolid_328", "outerbelt_500m_schoolid_331", "outerbelt_500m_schoolid_334", 
+  "outerbelt_500m_schoolid_336", "outerbelt_500m_schoolid_337", "outerbelt_500m_schoolid_338", 
+  "outerbelt_500m_schoolid_339", "outerbelt_500m_schoolid_340", "outerbelt_500m_schoolid_343", 
+  "outerbelt_5000m_schoolid_316", "outerbelt_5000m_schoolid_319", "outerbelt_5000m_schoolid_320", 
+  "outerbelt_5000m_schoolid_321", "outerbelt_5000m_schoolid_324", "outerbelt_5000m_schoolid_326", 
+  "outerbelt_5000m_schoolid_327", "outerbelt_5000m_schoolid_328", "outerbelt_5000m_schoolid_331", 
+  "outerbelt_5000m_schoolid_334", "outerbelt_5000m_schoolid_336", "outerbelt_5000m_schoolid_337", 
+  "outerbelt_5000m_schoolid_338", "outerbelt_5000m_schoolid_339", "outerbelt_5000m_schoolid_340", 
+  "outerbelt_5000m_schoolid_343", "threeyears_320", "threeyears_319", "threeyears_321", 
+  "threeyears_324", "threeyears_327", "threeyears_328", "threeyears_334", "threeyears_336", 
+  "threeyears_340", "threeyears_316", "threeyears_338", "threeyears_337", "threeyears_339", 
+  "threeyears_343", "threeyears_331", "threeyears_326"
+)
+
+```
+
+
+
+
+```{r}
+names(df)
+```
+
+```{r}
+# Only keep columns selected above
+df <- df[, columns_to_keep, drop = FALSE]
+
+```
+
+```{r}
+d <-as.Date(df$CL_Sale_Date)
+d<- format(d, "%Y-%m")
+df$year_month <- d
+# Convert the 'year_month' column to a Date object
+df$year_month <- as.Date(paste0(df$year_month, "-01"), format = "%Y-%m-%d")
+
+```
+
+
+## Get Schoolid List
+```{r}
+ # code to extract the list of schoolids based on variables names "threeyears_..."
+# Define the pattern to filter column names (e.g., columns starting with "threeyears_" followed by four digits)
+pattern <- "^threeyears_\\d{3}$"
+
+# Use grepl() to get a logical vector of columns that match the pattern
+filtered_columns <- names(df)[grepl(pattern, names(df))]
+
+```
+
+```{r}
+filtered_columns
+```
+
+```{r}
+
+# Use regular expressions to extract the four-digit numbers after "threeyears_"
+extracted_numbers <- sub("threeyears_(\\d{3})", "\\1", filtered_columns)
+
+# Convert the extracted numbers to numeric (i.e., the school IDs)
+schoolid_list <- as.numeric(extracted_numbers)
+
+# Print the extracted school IDs
+print(schoolid_list)
+```
+# create parallel trends graphs based on year group
+
+```{r}
+# Initialize an empty list to store graphs
+graph_list <- list()
+# Loop to create 64 subsets and 64 graphs
+
+for (school_id in schoolid_list) {
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Create group name
+    group_name <- gsub("schoolid_", "", outzone_col)
+    group_name <- gsub(school_id, "", group_name)
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    
+    # Create treatment column
+    subset_data$Treatment <- ifelse(subset_data[[inzone_col]] == 1, "Treatment", "Control")
+    
+    # Create mean_lp
+    mean_lp <- subset_data %>%
+      group_by(Year = year, Treatment) %>%
+      summarise(LogHousePrices = mean(lp, na.rm = TRUE), .groups = 'drop')
+    
+    # Create the plot
+    p <- ggplot( mean_lp, aes(x = Year, y = LogHousePrices, group = Treatment, color = Treatment))+
+      geom_line() +
+      geom_point() +
+      theme() +
+      labs(x = "Year", y = "LogHousePrices", 
+           title = paste("Parallel Trends Graph of", outzone_col)
+          )
+    
+    # Save the plot
+    ggsave(filename = paste0("Group_by_year_plot_",  outzone_col, ".png"), 
+           plot = p, width = 10, height = 6, dpi = 300)
+    
+    # add the plot to graph_list
+    graph_list <- append(graph_list, list(p))
+  }
+}
+    
+```
+
+
+# create parallel trends graphs based on yearmonth group
+
+```{r}
+# Initialize an empty list to store graphs
+graph_list <- list()
+
+# Loop to create 64 subsets and 64 graphs
+for (school_id in schoolid_list) {
+  zone_groups <- list(
+    list(inzone_col = paste0("innerbelt_500m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_500m_schoolid_", school_id)),
+    list(inzone_col = paste0("innerbelt_1000m_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_1000m_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("belt_schoolid_", school_id)),
+    list(inzone_col = paste0("inzone_schoolid_", school_id), 
+         outzone_col = paste0("outerbelt_5000m_schoolid_", school_id))
+  )
+  before_after_col <- paste0("threeyears_", school_id)
+  
+  # Iterate through each group
+  for (group in zone_groups) {
+    inzone_col <- group$inzone_col
+    outzone_col <- group$outzone_col
+    
+    # Create group name
+    group_name <- gsub("schoolid_", "", outzone_col)
+    group_name <- gsub(school_id, "", group_name)
+    
+    # Filter data based on the current group conditions
+    subset_data <- df %>%
+      filter(
+        !!sym(inzone_col) == 1 | 
+        !!sym(outzone_col) == 1
+      ) %>%
+      filter(
+        !!sym(before_after_col) == 0 | 
+        !!sym(before_after_col) == 1
+      )
+    
+    # Create treatment column
+    subset_data$Treatment <- ifelse(subset_data[[inzone_col]] == 1, "Treatment", "Control")
+    
+    # Create mean_lp using aggregate function
+    mean_lp <- aggregate(subset_data$lp, list(subset_data$year_month, subset_data$Treatment), mean)
+    names(mean_lp) <- c("YearMonth", "Treatment", "LogHousePrices")
+  
+    # Ensure YearMonth is treated as a factor and sorted
+    mean_lp$YearMonth <- factor(mean_lp$YearMonth, levels = sort(unique(mean_lp$YearMonth)))
+  
+    # Create the plot
+    p <- ggplot(mean_lp, aes(x = YearMonth, y = LogHousePrices, group = Treatment, color = Treatment)) +
+      geom_line() +
+      geom_point() +
+      scale_x_discrete(breaks = function(x) x[seq(1, length(x), 3)]) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      labs(x = "YearMonth", y = "LogHousePrices", 
+          title = paste("Parallel Trends Graph of", school_id, group_name))
+  
+    # Save the plot
+    ggsave(filename = paste0("plot_", school_id, "_",  outzone_col, ".png"), 
+           plot = p, width = 10, height = 6, dpi = 300)
+    
+    # add the plot to graph_list
+    graph_list <- append(graph_list, list(p))
+  }
+}
+
+```
+
+# put 64 graphs onto 4 pages, and save as pdf
+but the graphs are too small, so change to 8 pages
+```{r eval=FALSE, include=FALSE}
+
+#install.packages(c("ggplot2", "gridExtra"))
+#install.packages("gridExtra")
+library(gridExtra)
+# Function to arrange graphs on a page
+arrange_page <- function(graphs, page_num) {
+  start_index <- (page_num - 1) * 16 + 1
+  end_index <- page_num * 16
+  do.call(grid.arrange, c(graphs[start_index:end_index], ncol = 4, nrow = 4))
+}
+
+# Set up the PDF device
+pdf("multi_page_graphs.pdf", width = 8.27, height = 11.69)  # A4 size in inches
+
+# Create four pages of graphs
+for (page in 1:4) {
+  arrange_page(graph_list, page)
+}
+# Close the PDF device
+dev.off()
+```
+
+
+```{r}
+
+# Function to arrange graphs on a page
+arrange_page <- function(graphs, page_num) {
+  start_index <- (page_num - 1) * 8 + 1
+  end_index <- page_num * 8
+  do.call(grid.arrange, c(graphs[start_index:end_index], ncol = 2, nrow = 4))
+}
+
+# Calculate page size based on graph dimensions
+graph_width <- 10  # inches
+graph_height <- 6  # inches
+page_width <- graph_width * 2 + 1  # 2 graphs wide, with 1 inch margin
+page_height <- graph_height * 4 + 2  # 4 graphs tall, with 2 inch margin
+
+# Set up the PDF device
+pdf("multi_page_large_graphs_large.pdf", width = page_width, height = page_height)
+
+# Create eight pages of graphs
+for (page in 1:8) {
+  arrange_page(graph_list, page)
+}
+
+# Close the PDF device
+dev.off()
+```
+
+Since the treatment time (year_mont) of school could be not included in the dataset, so it could be a bit tricky to add the vertical line into each graph through a loop function. 
+
